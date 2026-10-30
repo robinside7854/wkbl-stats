@@ -64,7 +64,7 @@ tests/    parse.test.ts(공홈 표본 fixtures) metrics.test.ts
 ## 배포 규칙 (kbl-stats 와 같게 — Vercel 연결 뒤부터)
 - **작업이 끝나면 main 에 반영한다**(Vercel 은 main 만 배포 — `vercel.json`). 순서: 작업 브랜치 커밋·푸시 → `npm run typecheck && npm test && npm run build` → `git fetch origin main` → main 에 ff merge → push. Actions 데이터 커밋이 먼저 들어와 있을 수 있으니 merge 전에 반드시 fetch
 - Vercel 무료 플랜: 배포 24시간 100회, 저장공간 10GB — `.vercelignore` 가 `data/raw/`·`docs/`·`tests/` 를 뺀다. main 푸시는 요청 단위로 묶는다
-- 2026-10-30 현재: Vercel 미연결, main 에는 README 만 — 첫 main 반영은 사용자 확인 후
+- **운영 주소 https://wkbl-stats.vercel.app** (Vercel 프로젝트 wkbl-stats, 2026-10-30 사용자 연결·첫 main 반영). 프로젝트가 README 만 있을 때 만들어져 프레임워크가 비어 있었다 → `vercel.json framework: nextjs` 로 고정
 
 ## 방문 통계 규칙 (kbl-stats 와 같게)
 - GA4 는 **새 측정 ID**(KBL 것과 섞지 않는다). Vercel 환경변수 `NEXT_PUBLIC_GA_ID` + 운영 배포일 때만 켜진다(`lib/analytics.ts`). 아직 ID 없음 → 꺼짐
@@ -98,7 +98,8 @@ tests/    parse.test.ts(공홈 표본 fixtures) metrics.test.ts
 
 ## 후속 할 일
 - 2차: 문자중계 옛 시즌 범위 → 클러치·위닝샷(kbl-stats `lib/clutch` 규칙), 슛 좌표 지난 시즌 → 슛 차트, 플레이오프
-- Vercel 연결(사용자) → `site.json siteUrl`, GA4 새 측정 ID(원하면)
+- GA4 새 측정 ID(원하면) → Vercel 환경변수 `NEXT_PUBLIC_GA_ID`
 
 ## 세션 로그
 - 2026-10-30: 시작. kbl-stats 틀(디자인 토큰·공통 컴포넌트) 옮김, 수집(일정·박스스코어 raw gzip)·가공·Actions 백필, 화면 1차(홈·선수·선수 상세·기록 시즌별/통산·팀 순위·일정·용어). 올스타전이 일정에 경기 번호 1로 끼는 것 발견 → 정규리그만. 전 시즌 백필(경고 1건 — 공홈 쪽), 선수 번호는 이적해도 그대로 확인, 옛 팀 색 추가
+- 2026-10-30 (main 첫 반영): 사용자 요청으로 main 에 ff 반영 → Vercel 운영 배포 성공(https://wkbl-stats.vercel.app, 선수 471쪽·시즌 27개). site.json siteUrl·vercel.json framework 고정. 같은 날 수집 워크플로 두 번(run 3·4)이 러너를 못 받고 4초 만에 실패 — 단계가 하나도 안 돌아 코드 문제 아님, GitHub Actions 쪽(결제·한도 등) 확인을 사용자에게 요청
