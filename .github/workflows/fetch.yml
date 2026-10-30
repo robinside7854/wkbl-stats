@@ -54,7 +54,7 @@ jobs:
           git config user.email "252681033+robinside7854@users.noreply.github.com"
 
           save() {
-            git add data/raw data/processed
+            git add -A data
             if git diff --cached --quiet; then echo "변경 없음"; return 0; fi
             git commit -q -m "$1: $(date -u +'%Y-%m-%d %H:%M UTC')"
             for i in 1 2 3 4; do
