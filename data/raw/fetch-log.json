@@ -1,13 +1,13 @@
 {
-  "started": "2026-10-30T05:05:22.097Z",
-  "finished": "2026-10-30T05:07:47.088Z",
+  "started": "2026-10-30T05:07:49.280Z",
+  "finished": "2026-10-30T05:10:14.122Z",
   "requests": 97,
   "targets": [
-    "045"
+    "044"
   ],
   "results": [
     {
-      "season": "045",
+      "season": "044",
       "months": 5,
       "games": 91,
       "played": 91,
