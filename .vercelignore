@@ -1,0 +1,5 @@
+# Vercel 배포에서 뺄 것 — 빌드는 data/processed 만 읽는다(data/raw 는 GitHub Actions 의 scripts/process.ts 만 읽는다).
+# ⚠ data/processed/·data/codes/·lib/ 는 빌드가 쓰므로 여기 넣지 말 것.
+data/raw/
+docs/
+tests/

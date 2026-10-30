@@ -1,0 +1,83 @@
+# WKBL 기록 수집 — 공홈 일정·박스스코어를 받아 data/raw 에 그대로 저장하고, data/processed 를 다시 만들어 커밋한다.
+# 작업 환경(Claude 클라우드)은 wkbl.or.kr 이 막혀 있어 수집은 여기서만 한다.
+# 깨우는 방법:
+#   - 매일 23:40 KST 예약 (GitHub 예약은 main 에 있는 이 파일만 돈다)
+#   - GitHub → Actions → "WKBL 기록 수집" → Run workflow (시즌 칸: 비우면 지금 시즌, all = 전체 백필, "046 045" = 고른 시즌)
+#   - data/fetch-request.txt 를 바꿔 푸시 (Claude 세션은 Run workflow 버튼을 못 눌러서) — 첫 줄이 시즌 칸과 같은 뜻
+# 백필(all)은 시즌마다 받은 즉시 커밋·푸시한다 — 중간에 끊겨도 다음 실행이 이미 받은 경기는 건너뛴다.
+# WKBL robots.txt 는 자동 수집을 거부한다(2026-10-30) → 요청 간격 1.5초 이상, 하루 1회, 끝난 경기는 다시 받지 않는다(scripts/fetch.ts).
+name: WKBL 기록 수집
+
+on:
+  schedule:
+    - cron: "40 14 * * *" # 23:40 KST
+  workflow_dispatch:
+    inputs:
+      seasons:
+        description: "시즌 코드 (공백 구분). 비우면 지금 시즌, all 이면 전체"
+        required: false
+        default: ""
+  push:
+    paths: [".github/workflows/fetch.yml", "data/fetch-request.txt"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fetch
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: 설치
+        run: npm ci
+
+      - name: 수집 · 가공 · 커밋
+        env:
+          INPUT_SEASONS: ${{ github.event.inputs.seasons }}
+          EVENT: ${{ github.event_name }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          git config user.name "robinside7854"
+          git config user.email "252681033+robinside7854@users.noreply.github.com"
+
+          save() {
+            git add data/raw data/processed
+            if git diff --cached --quiet; then echo "변경 없음"; return 0; fi
+            git commit -q -m "$1: $(date -u +'%Y-%m-%d %H:%M UTC')"
+            for i in 1 2 3 4; do
+              if git pull -q --rebase -X theirs origin "$BRANCH" && git push -q origin "HEAD:$BRANCH"; then return 0; fi
+              echo "푸시 실패 ${i}번째 — 다시 시도"; sleep $((i * 10))
+            done
+            return 1
+          }
+
+          REQ="$INPUT_SEASONS"
+          if [ "$EVENT" = "push" ]; then REQ="$(head -1 data/fetch-request.txt 2>/dev/null | tr -d '\r')"; fi
+          if [ "$REQ" = "all" ]; then LIST="$(npx tsx scripts/fetch.ts list | tail -1)"; else LIST="$REQ"; fi
+          echo "요청: '${REQ}' → 시즌: '${LIST}'"
+
+          if [ -z "$LIST" ]; then
+            npx tsx scripts/fetch.ts
+            save "수집"
+          else
+            for s in $LIST; do
+              npx tsx scripts/fetch.ts "$s" || echo "::warning::$s 수집 실패"
+              save "수집 $s"
+            done
+          fi
+
+          npm run process
+          save "가공"
