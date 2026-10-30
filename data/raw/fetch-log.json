@@ -1,17 +1,17 @@
 {
-  "started": "2026-10-30T05:15:12.540Z",
-  "finished": "2026-10-30T05:17:37.674Z",
-  "requests": 97,
+  "started": "2026-10-30T05:17:39.828Z",
+  "finished": "2026-10-30T05:19:13.996Z",
+  "requests": 63,
   "targets": [
-    "041"
+    "040"
   ],
   "results": [
     {
-      "season": "041",
-      "months": 5,
-      "games": 90,
-      "played": 90,
-      "boxFetched": 90,
+      "season": "040",
+      "months": 6,
+      "games": 55,
+      "played": 55,
+      "boxFetched": 55,
       "boxSkipped": 0,
       "failures": []
     }
