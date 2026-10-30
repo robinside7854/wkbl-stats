@@ -1,0 +1,11 @@
+{
+  "_note": "팀 색은 우리가 고른 대략의 색이다(공식 로고·색 파일을 쓰지 않는다 — WKBL 화면 하단 무단 사용 금지 문구). 코드는 공홈 일정 표의 팀 코드. 여기 없는 옛 팀은 회색 + 이름 앞 두 글자.",
+  "teams": [
+    { "code": "01", "mark": "KB", "primary": "#F2B705", "text": "#1A1A1A" },
+    { "code": "03", "mark": "삼성", "primary": "#1D4E9E", "text": "#FFFFFF" },
+    { "code": "05", "mark": "우리", "primary": "#0A8FD1", "text": "#0B0B0B" },
+    { "code": "07", "mark": "신한", "primary": "#2B3990", "text": "#FFFFFF" },
+    { "code": "09", "mark": "하나", "primary": "#00857A", "text": "#FFFFFF" },
+    { "code": "11", "mark": "BNK", "primary": "#D3202F", "text": "#FFFFFF" }
+  ]
+}

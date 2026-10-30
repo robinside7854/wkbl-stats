@@ -12,7 +12,9 @@
     "process": "tsx scripts/process.ts",
     "report:players": "tsx scripts/report-players.ts",
     "typecheck": "tsc --noEmit -p tsconfig.scripts.json && tsc --noEmit -p tsconfig.json",
-    "test": "tsx tests/parse.test.ts && tsx tests/metrics.test.ts"
+    "test": "tsx tests/parse.test.ts && tsx tests/metrics.test.ts",
+    "prebuild": "tsx scripts/build-search-index.ts",
+    "predev": "tsx scripts/build-search-index.ts"
   },
   "engines": {
     "node": ">=20"
@@ -32,7 +34,8 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-is": "19.3.0",
-    "recharts": "3.10.1"
+    "recharts": "3.10.1",
+    "server-only": "^0.0.1"
   },
   "overrides": {
     "postcss": "$postcss"

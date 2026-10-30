@@ -71,6 +71,8 @@ export function isRegularLeague(s: SeasonInfo): boolean {
 
 // ─── 월별 일정 (/game/sch/inc_list_1_new.asp) ───
 
+export const REGULAR_GAME_TYPE = "01";
+
 interface TeamCell {
   code: string;
   name: string;
@@ -90,6 +92,7 @@ function parseTeamCell(block: string): TeamCell | null {
  * - 줄마다 <tr id="YYYYMMDD"> 로 날짜가 붙어 있다.
  * - 두 팀 칸의 class 는 away/home 이지만, **먼저 나오는 팀이 홈**이다(경기장이 그 팀 홈 체육관 — 2026-10-30 표본 6경기 확인).
  * - 경기 번호는 "경기기록" 링크의 game_no, 없으면 goTodayGame('01', N) / goLive('01', N).
+ * - 정규리그(game_type 01)만 돌려준다.
  */
 export function parseSchedule(html: string, seasonCode: string): ScheduleGame[] {
   const out: ScheduleGame[] = [];
@@ -102,6 +105,9 @@ export function parseSchedule(html: string, seasonCode: string): ScheduleGame[] 
     const first = parseTeamCell(teamBlocks[0]);
     const second = parseTeamCell(teamBlocks[1]);
     if (!first || !second) continue;
+    // 경기 종류: 01 = 정규리그. 올스타전(10)도 같은 달 일정에 경기 번호 1로 끼어 있어(2026-10-30 확인) 뺀다
+    const gameType = row.match(/game_type=(\d+)/)?.[1] ?? row.match(/go(?:TodayGame|Live)\('(\d+)'/)?.[1] ?? REGULAR_GAME_TYPE;
+    if (gameType !== REGULAR_GAME_TYPE) continue;
     const gameNo = Number(
       row.match(/game_no=(\d+)/)?.[1] ?? row.match(/go(?:TodayGame|Live)\('\d+',\s*(\d+)\)/)?.[1] ?? 0,
     );
