@@ -103,3 +103,4 @@ tests/    parse.test.ts(공홈 표본 fixtures) metrics.test.ts
 ## 세션 로그
 - 2026-10-30: 시작. kbl-stats 틀(디자인 토큰·공통 컴포넌트) 옮김, 수집(일정·박스스코어 raw gzip)·가공·Actions 백필, 화면 1차(홈·선수·선수 상세·기록 시즌별/통산·팀 순위·일정·용어). 올스타전이 일정에 경기 번호 1로 끼는 것 발견 → 정규리그만. 전 시즌 백필(경고 1건 — 공홈 쪽), 선수 번호는 이적해도 그대로 확인, 옛 팀 색 추가
 - 2026-10-30 (main 첫 반영): 사용자 요청으로 main 에 ff 반영 → Vercel 운영 배포 성공(https://wkbl-stats.vercel.app, 선수 471쪽·시즌 27개). site.json siteUrl·vercel.json framework 고정. 같은 날 수집 워크플로 두 번(run 3·4)이 러너를 못 받고 4초 만에 실패 — 단계가 하나도 안 돌아 코드 문제 아님, GitHub Actions 쪽(결제·한도 등) 확인을 사용자에게 요청
+- 2026-10-31: Actions 멈춤 원인 = GitHub 결제(비공개 저장소 무료 시간 소진 — "recent account payments have failed or your spending limit"). kbl-stats 매일 수집도 10-30 저녁부터 같은 이유로 멈춰 있었다. 사용자가 wkbl-stats·kbl-stats 를 **공개 저장소로 전환**(공개 저장소 Actions 는 무료·무제한) → fetch-request 047 로 수집 재확인
