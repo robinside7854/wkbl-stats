@@ -1,7 +1,7 @@
 {
-  "started": "2026-10-31T13:37:15.696Z",
-  "finished": "2026-10-31T13:49:16.263Z",
-  "requests": 479,
+  "started": "2026-10-31T14:27:45.114Z",
+  "finished": "2026-10-31T14:27:55.849Z",
+  "requests": 8,
   "targets": [
     "046"
   ],
@@ -17,7 +17,7 @@
     }
   ],
   "profiles": {
-    "fetched": 471,
+    "fetched": 0,
     "missing": [],
     "failures": []
   }
