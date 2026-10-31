@@ -1,6 +1,7 @@
 // 수집(scripts/)과 화면(app/)이 함께 쓰는 데이터 모양.
 // WKBL 공홈 HTML 의 표 머리글(2PM-A, OFF 등)은 scripts/parse.ts 에서 한 번만 우리 이름(twoPm, oreb)으로 바꾼다.
 // 화면에는 공홈 원본 이름이 나오지 않게 한다 (CLAUDE.md 코딩 규칙).
+import type { SeasonGrade } from "./grades";
 
 export type Position = "G" | "F" | "C";
 
@@ -104,6 +105,8 @@ export interface PlayerSeason extends StatLine {
   highPts: number;
   /** 더블더블 경기 수 */
   dd: number;
+  /** 시즌 능력치 6축·등급 (표본 기준 미달이면 null — lib/grades) */
+  grade: SeasonGrade | null;
 }
 
 export interface TeamStanding {

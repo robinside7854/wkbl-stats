@@ -1,15 +1,18 @@
-// 홈: 이번 시즌 한눈에 — 최근 경기일 결과 · 다음 경기 · 팀 순위 · 부문별 상위 5명
+// 홈: 이번 시즌 한눈에 — 득점 1위 표지 · 다음 경기 · 최근 경기 · 팀 순위 카드 · 능력치 상위 · 부문별 상위 5명
 import Link from "next/link";
 import { defaultSeason, getGames, getSeasonPlayers, getSeasons, getStandings, isOngoing, teamGames, teamName } from "@/lib/data";
-import { longDate, seasonShortLabel } from "@/lib/format";
+import { longDate } from "@/lib/format";
 import { lastGameDay, nextGameDay } from "@/lib/games";
 import { rankBy } from "@/lib/leaders";
-import { seasonQualify } from "@/lib/metrics";
+import { perGame, seasonQualify } from "@/lib/metrics";
 import GameCard from "./components/GameCard";
 import { IconChevronRight } from "./components/icons";
 import LeaderMini from "./components/LeaderMini";
 import PageShell, { EmptyData } from "./components/PageShell";
-import StandingsTable from "./components/StandingsTable";
+import HelpPopover from "./components/HelpPopover";
+import HomeHero from "./components/HomeHero";
+import StandingsCards from "./components/StandingsCards";
+import TopGraded from "./components/TopGraded";
 
 export default function HomePage() {
   const season = defaultSeason();
@@ -29,6 +32,12 @@ export default function HomePage() {
   const rule = seasonQualify(teamGames(code), isOngoing(code));
   const players = getSeasonPlayers(code);
   const tn = (c: string) => teamName(c, code);
+  const topScorer = rankBy(players, "pts", "avg", rule)[0] ?? null;
+  const graded = players
+    .filter((p) => p.grade)
+    .sort((a, b) => b.grade!.overall - a.grade!.overall)
+    .slice(0, 6)
+    .map((p) => ({ playerNo: p.playerNo, nameKo: p.nameKo, teamCode: p.teamCode, teamName: tn(p.teamCode), grade: p.grade! }));
   const LEAD = [
     { key: "pts", title: "득점", unit: "점" },
     { key: "reb", title: "리바운드", unit: "개" },
@@ -37,10 +46,25 @@ export default function HomePage() {
 
   return (
     <PageShell view="home" season={code}>
-      <h1 className="sr-only">WKBL 스탯 홈</h1>
-      <p className="mb-4 text-sub text-ink-3">
-        {seasonShortLabel(season.label)} 정규리그 · {season.played}/{season.scheduled}경기 끝남
-      </p>
+      <HomeHero
+        seasonTitle={`WKBL ${season.label} 시즌`}
+        progress={`정규리그 ${season.played}/${season.scheduled}경기 끝남${season.played === season.scheduled ? " · 시즌 종료" : ""}`}
+        leader={
+          topScorer
+            ? {
+                playerNo: topScorer.row.playerNo,
+                nameKo: topScorer.row.nameKo,
+                teamCode: topScorer.row.teamCode,
+                teamName: tn(topScorer.row.teamCode),
+                ppg: perGame(topScorer.row.pts, topScorer.row.games).toFixed(1),
+                rpg: perGame(topScorer.row.reb, topScorer.row.games).toFixed(1),
+                apg: perGame(topScorer.row.ast, topScorer.row.games).toFixed(1),
+                games: topScorer.row.games,
+                grade: topScorer.row.grade,
+              }
+            : null
+        }
+      />
 
       {next.length > 0 && (
         <section className="mb-6">
@@ -75,12 +99,20 @@ export default function HomePage() {
       <div className="space-y-6">
         <section>
           <h2 className="mb-2 text-h2 font-bold">팀 순위</h2>
-          <StandingsTable rows={getStandings(code)} compact />
+          <StandingsCards rows={getStandings(code)} />
           <Link href={`/season/${code}/standings`} className="focus-ring link-shortcut mt-1 text-sub">
             자세히
             <IconChevronRight size={16} />
           </Link>
         </section>
+        {graded.length > 0 && (
+          <section>
+            <h2 className="mb-2 flex items-center gap-1 text-h2 font-bold">
+              능력치 상위 <HelpPopover term="grade" className="ml-1" />
+            </h2>
+            <TopGraded players={graded} />
+          </section>
+        )}
         <section>
           <h2 className="mb-2 text-h2 font-bold">부문별 1~5위</h2>
           {players.length === 0 ? (

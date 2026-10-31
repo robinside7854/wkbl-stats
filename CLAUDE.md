@@ -20,10 +20,18 @@ WKBL 공홈 `https://www.wkbl.or.kr` 은 JSON 이 아니라 **ASP 가 그린 HTM
   - 2024-25·2025-26 전 경기에서 선수 득점 합 = 일정 점수 (2026-10-30 가공 경고 0건)
 - 시즌 코드: 013(2003 여름) … 046 = 2025-26, 047 = 2026-27. 2007-08 전에는 여름·겨울 리그가 따로. 퓨처스리그(2군)는 뺀다. 팀 6개, 정규리그 팀당 30경기
 - 시즌 전체 선수 기록 API 는 없다(부문별 상위 약 30명뿐) → **박스스코어를 더해서 시즌 합계를 만든다**. 2차 지표(TS%·EFF)도 우리가 계산
-- 아직 안 쓴 것(2차 범위): 문자중계 `/live11/path_live_sms.asp?season_gu0=&game_type0=01&game_no0=&quarter_gu0=Q4&seq0=0`(2025-26 확인, 옛 시즌 미확인) → 클러치·위닝샷 / 슛 위치 `POST /player/ajax/ajax_shooting.asp`(지난 시즌 미확인) / 선수 프로필 `POST /player/ajax/ajax_detail_personal.asp` / 플레이오프(달 선택 "p")
+- **선수 프로필**(2026-10-31): `GET /player/detail.asp?player_group=12&tcode=&pno=`(현역), 없으면 `/player/detail2.asp?player_group=11&…`(은퇴) — 프로필 상자(현역 `profile_view`, 은퇴 `profile_view01 retired`)의 등번호("No.23")·팀 표기·포지션·신장·생년월일·출신학교·드래프트 한 줄("2008 WKBL 신입선수 선발회 / 1라운드 / 2순위 (전체 2순위) / 금호생명 레드윙스"). ⚠️ 주석 안에 옛 `txt_team` 태그가 있어 주석을 먼저 지우고 읽는다(`parseProfile`). raw `data/raw/profiles/{번호}.html.gz`, 받은 날 `_fetched.json` — 처음 보는 선수만, 지금 시즌 선수는 30일마다(`PROFILE_REFRESH_DAYS`), 대상은 가공본 선수 목록(새 선수는 다음 날)
+- 아직 안 쓴 것(2차 범위): 문자중계 `/live11/path_live_sms.asp?season_gu0=&game_type0=01&game_no0=&quarter_gu0=Q4&seq0=0`(2025-26 확인, 옛 시즌 미확인) → 클러치·위닝샷 / 슛 위치 `POST /player/ajax/ajax_shooting.asp`(지난 시즌 미확인) / 개인 최고 기록 `POST /player/ajax/ajax_detail_personal.asp` / 플레이오프(달 선택 "p")
 - 선수 번호(pno)는 **팀을 옮겨도 그대로**(2026-10-30 백필 확인: 한 번호로 여러 팀에서 뛴 선수 167명). 같은 이름 다른 번호 22쌍은 다른 사람(예: 김단비 095104 우리은행 / 095226 삼성생명 — 같은 시즌에 함께 뜀). 2003 무렵 번호는 팀 코드로 시작(005xxx), 요즘 095xxx
 - 팀 코드: 01 KB · 03 삼성생명 · 05 우리은행 · 07 신한은행(2005겨울~) · 09 하나은행(2020-21~) · 11 BNK(2019-20~) / 옛 팀 02 금호생명 · 04 신세계 · 06 현대 · 08 KDB생명(2010-11~) · 10 OK저축은행(2018-19 한 시즌) — 매각마다 새 코드
 - 백필 결과(2026-10-30): 27시즌·약 2,400경기·선수 471명, raw 17MB·processed 5MB. 득점 합 경고 1건(2004겨울 #8 삼성생명 62 ≠ 64 — 공홈 박스스코어 쪽 누락)
+
+## 능력치·등급 (2026-10-31 사용자 "숫자 중심 → 직관적으로", `lib/grades.ts` — 우리 규칙)
+- 비교 집단 = 그 시즌 팀 경기의 절반 이상 뛴 선수(진행 중 시즌도 같게, 5명 미만이면 등급 없음). 가공(`process.ts`) 때 계산해 `PlayerSeason.grade`
+- 6축 = 공격(경기당 득점·야투 성공) · 슈팅(3점 성공·3점%·자유투% — 성공률은 경기당 시도 1개 이상) · 리바운드(공격·수비) · 리딩(어시스트·어시/턴오버 — 경기당 어시 1 이상) · 수비(스틸·블록) · 효율(TS% — 경기당 야투 3개 이상, 경기당 EFF). 구성 요소 백분위(mid-rank) 평균 → 집단 안 다시 백분위
+- 등급: 축 S 90 · A 75 · B 55 · C 35 · D 15, 종합(6축 평균의 백분위) S 95(상위 5%) · A 80 · B 55 · C 30 · D 10. 점수 = 백분위 1~99
+- 유형: 5축 이상 70+ 올라운더, 아니면 60 넘는 축 중 가장 높은 축(득점원·슈터·리바운더·플레이메이커·수비수·피니셔), 없으면 롤플레이어. 25-26: 올라운더 5·슈터 14·플레이메이커 12·롤 14 / 60명
+- 색: S 금색 · A 팀 색 · B 팀 색 옅게 · C~F 회색 (`gradeStyle`), 백분위 막대 파랑(낮음)–회색–빨강(높음) (`percentileFill`)
 
 ## 기술 스택 / 제약
 - TypeScript(Node) 하나로 수집·화면. 화면은 **Next.js(App Router) + Tailwind CSS**, 차트는 **Recharts 하나만**, 배포는 Vercel(사용자가 새 프로젝트로 연결 예정)
@@ -35,7 +43,7 @@ WKBL 공홈 `https://www.wkbl.or.kr` 은 JSON 이 아니라 **ASP 가 그린 HTM
 2. **원본은 그대로 저장, 가공은 따로** — `data/raw/{시즌}/schedule/{YYYYMM}.html.gz`, `box/{번호}.html.gz`. 가공(`npm run process`)은 매번 processed 를 지우고 처음부터 다시 만든다
 3. **공홈 호출은 서버 쪽(Actions)에서만**
 4. **하루 1회** — 끝난 경기의 박스스코어는 다시 받지 않는다(최근 3일 경기만 다시). 시즌 목록·일정은 매번
-5. **지표 계산은 `lib/metrics.ts` 한 곳** (순위는 `lib/leaders.ts`, 팀 순위 `lib/standings.ts`) — 식과 출처 주석 필수
+5. **지표 계산은 `lib/metrics.ts` 한 곳** (순위는 `lib/leaders.ts`, 팀 순위 `lib/standings.ts`, 능력치 6축·등급 `lib/grades.ts`) — 식과 출처 주석 필수
 6. **출처 표기** — 모든 화면 하단 "기록 출처: WKBL 공식 홈페이지 · 비영리 팬 프로젝트" (`SourceFooter`)
 
 ## 법적 제약 (2026-10-30 조사)
@@ -56,9 +64,9 @@ WKBL 공홈 `https://www.wkbl.or.kr` 은 JSON 이 아니라 **ASP 가 그린 HTM
 scripts/  config.ts(공홈 주소·raw 위치·요청 간격) http.ts(간격 지키는 요청·gzip 저장) parse.ts(HTML 읽기) fetch.ts(수집) process.ts(가공) build-search-index.ts(prebuild)
 lib/      types.ts metrics.ts leaders.ts standings.ts games.ts teams.ts format.ts glossary.ts data.ts(화면용 읽기, server-only) analytics.ts
 app/      page.tsx(홈) players/ player/[no]/ records/(통산) season/[code]/{leaders,standings,schedule}/ glossary/ robots.ts
-app/components/  kbl-stats 에서 옮김: RowList·HelpPopover·ChipRow·Segmented·Skeleton·icons·track·Analytics·useMedia·webFont / 새로: SiteNav(줄임)·PageShell·SourceFooter·TeamBadge·PlayerAvatar·GameCard·StandingsTable·LeadersView·PlayersView·SeasonTable·CareerTrend·ScheduleView·PlayerSearch(줄임)
+app/components/  2026-10-31 그림 중심: PlayerHero(팀 색 띠·유니폼 등번호·프로필)·PlayerCard(6축 레이더·세부 능력치 막대)·GradeBadge·LeaderCover(리더보드 1~3위)·HomeHero(득점 1위 표지)·StandingsCards·TopGraded / kbl-stats 에서 옮김: RowList·HelpPopover·ChipRow·Segmented·Skeleton·icons·track·Analytics·useMedia·webFont / 새로: SiteNav(줄임)·PageShell·SourceFooter·TeamBadge·PlayerAvatar·GameCard·StandingsTable·LeadersView·PlayersView·SeasonTable·CareerTrend·ScheduleView·PlayerSearch(줄임)
 data/codes/  teams.json(팀 색) site.json(indexable·officialSite)
-tests/    parse.test.ts(공홈 표본 fixtures) metrics.test.ts
+tests/    parse.test.ts(공홈 표본 fixtures — 박스스코어·일정·프로필) metrics.test.ts grades.test.ts
 ```
 
 ## 배포 규칙 (kbl-stats 와 같게 — Vercel 연결 뒤부터)
@@ -79,6 +87,7 @@ tests/    parse.test.ts(공홈 표본 fixtures) metrics.test.ts
   | filter_reset | screen | 선수 탭 필터 초기화 |
   | help_open | topic | ⓘ 도움말 |
   | search_select | player_no, mode(go) | 상단 검색에서 선수 고르기 |
+  | filter_change (선수 카드) | screen=player filter=card_season value=시즌 코드 | 선수 상세 시즌 능력치 카드의 시즌 칩 (2026-10-31) |
 
 ## 업데이트 소식 규칙
 - KBL 사이트의 업데이트 게시판(`lib/updates.ts`)은 아직 옮기지 않았다 — 공개(승인) 전에는 쓰지 않는다. 공개할 때 게시판을 옮기고 그때부터 "화면 기능을 바꾸면 같은 커밋에 글 하나" 규칙을 따른다
@@ -104,3 +113,4 @@ tests/    parse.test.ts(공홈 표본 fixtures) metrics.test.ts
 - 2026-10-30: 시작. kbl-stats 틀(디자인 토큰·공통 컴포넌트) 옮김, 수집(일정·박스스코어 raw gzip)·가공·Actions 백필, 화면 1차(홈·선수·선수 상세·기록 시즌별/통산·팀 순위·일정·용어). 올스타전이 일정에 경기 번호 1로 끼는 것 발견 → 정규리그만. 전 시즌 백필(경고 1건 — 공홈 쪽), 선수 번호는 이적해도 그대로 확인, 옛 팀 색 추가
 - 2026-10-30 (main 첫 반영): 사용자 요청으로 main 에 ff 반영 → Vercel 운영 배포 성공(https://wkbl-stats.vercel.app, 선수 471쪽·시즌 27개). site.json siteUrl·vercel.json framework 고정. 같은 날 수집 워크플로 두 번(run 3·4)이 러너를 못 받고 4초 만에 실패 — 단계가 하나도 안 돌아 코드 문제 아님, GitHub Actions 쪽(결제·한도 등) 확인을 사용자에게 요청
 - 2026-10-31: Actions 멈춤 원인 = GitHub 결제(비공개 저장소 무료 시간 소진 — "recent account payments have failed or your spending limit"). kbl-stats 매일 수집도 10-30 저녁부터 같은 이유로 멈춰 있었다. 사용자가 wkbl-stats·kbl-stats 를 **공개 저장소로 전환**(공개 저장소 Actions 는 무료·무제한) → fetch-request 047 로 수집 재확인
+- 2026-10-31 (그림 중심 개편): 사용자 "선수 프로필 필수, 숫자 중심 → KBL 처럼 직관적으로". 공홈 선수 상세에서 프로필 수집(현역·은퇴 화면 둘 다), 시즌 능력치 6축·S~F 등급·유형(lib/grades), 화면: 선수 머리말(팀 색 띠 + 사진 대신 유니폼 등번호 + 나이·키·출신교·드래프트) · 시즌 능력치 카드(레이더·세부 능력치 막대) · 리더보드 1~3위 팀 색 카드 · 홈 득점 1위 표지·팀 순위 카드·능력치 상위 · 선수 목록 등급 배지. 사진·로고는 계속 안 씀

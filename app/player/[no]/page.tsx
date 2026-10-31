@@ -1,16 +1,18 @@
-// 선수 상세 /player/{번호}: 머리말 · 통산 요약 · 시즌별 변화 · 시즌별 기록 · 커리어 하이 · 마지막 시즌 경기 기록
+// 선수 상세 /player/{번호}: 머리말(팀 색·유니폼 등번호·프로필·통산) · 시즌 능력치 카드(6축·등급) · 시즌별 변화 · 시즌별 기록 · 커리어 하이 · 마지막 시즌 경기 기록
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPlayer, getPlayersIndex, getSeasons, teamName } from "@/lib/data";
 import { dotDate, formatPct1, positionLabel, seasonShortLabel, shortDate } from "@/lib/format";
 import { fga, fgm, formatMinutes, pct, perGame, tsPct } from "@/lib/metrics";
-import type { CareerHigh, StatLine } from "@/lib/types";
+import type { CareerHigh, DraftInfo, StatLine } from "@/lib/types";
+import { COMPONENTS, ageOn, componentText, componentValue, type ComponentKey } from "@/lib/grades";
+import { teamColor } from "@/lib/teams";
+import PlayerCard, { type CardSeason } from "@/app/components/PlayerCard";
+import PlayerHero, { type HeroFact, type HeroTile } from "@/app/components/PlayerHero";
 import CareerTrend, { type TrendPoint } from "@/app/components/CareerTrend";
 import HelpPopover from "@/app/components/HelpPopover";
 import PageShell from "@/app/components/PageShell";
-import PlayerAvatar from "@/app/components/PlayerAvatar";
 import SeasonTable, { type SeasonRow } from "@/app/components/SeasonTable";
-import TeamBadge from "@/app/components/TeamBadge";
 
 export const dynamicParams = false;
 export function generateStaticParams() {
@@ -47,13 +49,13 @@ function avgRow(key: string, label: string, team: string, tName: string, s: Stat
   };
 }
 
-function Tile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="surface-card rounded-card px-3 py-2.5">
-      <p className="text-caption text-ink-3">{label}</p>
-      <p className="tabular text-h2 font-bold">{value}</p>
-    </div>
-  );
+/** "2008 1라운드 2순위" (전체 순위가 다르면 덧붙임) */
+function draftText(d: DraftInfo): string {
+  const parts = [`${d.year}`];
+  if (d.round) parts.push(`${d.round}라운드`);
+  if (d.pick) parts.push(`${d.pick}순위`);
+  if (d.overall && d.overall !== d.pick) parts.push(`(전체 ${d.overall}순위)`);
+  return parts.length > 1 ? parts.join(" ") : d.text;
 }
 
 export default async function PlayerPage({ params }: { params: Promise<{ no: string }> }) {
@@ -80,35 +82,60 @@ export default async function PlayerPage({ params }: { params: Promise<{ no: str
     ts: tsPct(s) === null ? null : Number((tsPct(s)! * 100).toFixed(1)),
   }));
 
+  // 머리말 재료: 프로필(공홈) · 나이(빌드 날짜, 한국 시간) · 마지막으로 등급이 있는 시즌
+  const prof = p.profile;
+  const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
+  const age = prof?.birthDate ? ageOn(prof.birthDate, today) : null;
+  const facts: HeroFact[] = [
+    prof?.backNumber ? { label: "등번호", value: `${prof.backNumber}번` } : null,
+    age !== null && prof?.birthDate ? { label: "나이", value: `만 ${age}세 (${prof.birthDate.slice(0, 4)}년생)` } : null,
+    prof?.heightCm ? { label: "키", value: `${prof.heightCm}cm` } : null,
+    prof?.school ? { label: "출신교", value: prof.school } : null,
+    prof?.draft ? { label: "드래프트", value: draftText(prof.draft) } : null,
+  ].filter((f): f is HeroFact => f !== null);
+  const tiles: HeroTile[] = [
+    { label: "통산 경기", value: String(c.games), sub: `${p.seasons.length}시즌` },
+    { label: "득점", value: perGame(c.pts, c.games).toFixed(1), sub: "경기당" },
+    { label: "리바운드", value: perGame(c.reb, c.games).toFixed(1), sub: "경기당" },
+    { label: "어시스트", value: perGame(c.ast, c.games).toFixed(1), sub: "경기당" },
+    { label: "TS%", value: formatPct1(tsPct(c)), sub: "통산" },
+    { label: "통산 득점", value: c.pts.toLocaleString("ko-KR") },
+  ];
+  const graded = p.seasons.filter((s) => s.grade);
+  const cardSeasons: CardSeason[] = graded.map((s) => ({
+    code: s.seasonCode,
+    label: label(s.seasonCode),
+    teamName: teamName(s.teamCode, s.seasonCode),
+    color: teamColor(s.teamCode),
+    games: s.games,
+    grade: s.grade!,
+    values: Object.fromEntries((Object.keys(COMPONENTS) as ComponentKey[]).map((k) => [k, componentText(componentValue(s, k), k)])) as Record<ComponentKey, string>,
+  }));
+  const span = first && last ? (first === last ? label(first.seasonCode) : `${label(first.seasonCode)} ~ ${label(last.seasonCode)}`) : "";
+
   return (
     <PageShell view="player">
-      <section className="surface-card mb-5 flex items-center gap-4 rounded-container p-4">
-        <PlayerAvatar nameKo={p.nameKo} teamCode={last?.teamCode ?? ""} size={64} />
-        <div className="min-w-0">
-          <h1 className="text-h1 font-bold">{p.nameKo}</h1>
-          {p.nameEn && <p className="text-sub text-ink-3">{p.nameEn}</p>}
-          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sub text-ink-2">
-            {last && (
-              <span className="inline-flex items-center gap-1.5">
-                <TeamBadge code={last.teamCode} name={teamName(last.teamCode, last.seasonCode)} size={20} />
-                {teamName(last.teamCode, last.seasonCode)}
-              </span>
-            )}
-            <span>· {positionLabel(p.position)}</span>
-            {first && last && <span>· {first === last ? label(first.seasonCode) : `${label(first.seasonCode)} ~ ${label(last.seasonCode)}`}</span>}
-          </p>
-        </div>
-      </section>
+      <PlayerHero
+        nameKo={p.nameKo}
+        nameEn={p.nameEn}
+        profile={prof}
+        teamCode={last?.teamCode ?? ""}
+        teamLabel={last ? `${label(last.seasonCode)} ${teamName(last.teamCode, last.seasonCode)}` : ""}
+        span={span}
+        positionText={positionLabel(prof?.position ?? p.position)}
+        facts={facts}
+        tiles={tiles}
+        latestGrade={graded[0]?.grade ?? null}
+        latestGradeSeason={graded[0] ? label(graded[0].seasonCode) : ""}
+      />
 
-      <h2 className="mb-2 text-h2 font-bold">통산 (정규리그)</h2>
-      <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-        <Tile label="경기" value={String(c.games)} />
-        <Tile label="득점" value={perGame(c.pts, c.games).toFixed(1)} />
-        <Tile label="리바운드" value={perGame(c.reb, c.games).toFixed(1)} />
-        <Tile label="어시스트" value={perGame(c.ast, c.games).toFixed(1)} />
-        <Tile label="TS%" value={formatPct1(tsPct(c))} />
-        <Tile label="통산 득점" value={c.pts.toLocaleString("ko-KR")} />
-      </div>
+      {cardSeasons.length > 0 ? (
+        <div className="mb-8">
+          <PlayerCard seasons={cardSeasons} nameKo={p.nameKo} backNumber={prof?.backNumber ?? null} />
+        </div>
+      ) : (
+        <p className="mb-6 text-sub text-ink-3">어느 시즌도 팀 경기의 절반 이상 뛰지 않아 능력치 등급이 없어요.</p>
+      )}
 
       {trend.length > 1 && (
         <section className="mb-6">

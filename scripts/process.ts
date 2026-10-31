@@ -16,6 +16,8 @@ import { exists, readRaw } from "./http";
 import { isRegularLeague, parseBoxScore, parseProfile, parseSchedule, parseSeasonOptions } from "./parse";
 import { addLine, emptyLine, isDoubleDouble } from "../lib/metrics";
 import { buildStandings } from "../lib/standings";
+import { gradeSeason, type SeasonGrade } from "../lib/grades";
+import { QUALIFY_SHARE } from "../lib/metrics";
 import type {
   BoxPlayerLine,
   CareerHigh,
@@ -70,6 +72,7 @@ function toPlayerSeason(a: PlayerAcc): PlayerSeason {
     games: a.games,
     highPts: a.highPts,
     dd: a.dd,
+    grade: null,
     ...a.line,
   };
 }
@@ -94,6 +97,7 @@ interface SeasonOut {
   info: SeasonInfo;
   summary: SeasonSummary;
   players: Map<string, PlayerAcc>;
+  grades: Map<string, SeasonGrade>;
   warnings: string[];
 }
 
@@ -161,7 +165,13 @@ async function processSeason(info: SeasonInfo): Promise<SeasonOut> {
     pg.topScorers = [tops[0], tops[1]];
   }
 
-  const seasonPlayers = [...players.values()].map(toPlayerSeason).sort((x, y) => y.pts - x.pts);
+  // 능력치 등급: 비교 집단 = 팀 경기의 절반 이상 뛴 선수 (진행 중 시즌도 같은 규칙 — 1~2경기 표본이 S 가 되지 않게)
+  const standings = buildStandings(games);
+  const teamGames = standings.reduce((m, t) => Math.max(m, t.games), 0);
+  const grades = gradeSeason([...players.values()].map((a) => ({ ...a.line, games: a.games, key: a.playerNo })), (p) => p.key, Math.ceil(teamGames * QUALIFY_SHARE));
+  const seasonPlayers = [...players.values()]
+    .map((a) => ({ ...toPlayerSeason(a), grade: grades.get(a.playerNo) ?? null }))
+    .sort((x, y) => y.pts - x.pts);
 
   const played = games.filter((g) => g.homeScore !== null);
   const summary: SeasonSummary = {
@@ -177,9 +187,9 @@ async function processSeason(info: SeasonInfo): Promise<SeasonOut> {
     const dir = join(PROCESSED_DIR, code);
     await writeJson(join(dir, "games.json"), games);
     await writeJson(join(dir, "players.json"), seasonPlayers);
-    await writeJson(join(dir, "standings.json"), buildStandings(games));
+    await writeJson(join(dir, "standings.json"), standings);
   }
-  return { info, summary, players, warnings };
+  return { info, summary, players, grades, warnings };
 }
 
 async function main() {
@@ -247,7 +257,7 @@ async function main() {
       c.nameKo = acc.nameKo;
       if (acc.nameEn) c.nameEn = acc.nameEn;
       c.positions.push(...acc.positions);
-      c.seasons.push({ seasonCode: o.info.code, ...toPlayerSeason(acc) });
+      c.seasons.push({ seasonCode: o.info.code, ...toPlayerSeason(acc), grade: o.grades.get(acc.playerNo) ?? null });
       addLine(c.line, acc.line);
       c.games += acc.games;
       for (const log of acc.logs) {

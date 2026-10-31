@@ -12,7 +12,7 @@
     "process": "tsx scripts/process.ts",
     "report:players": "tsx scripts/report-players.ts",
     "typecheck": "tsc --noEmit -p tsconfig.scripts.json && tsc --noEmit -p tsconfig.json",
-    "test": "tsx tests/parse.test.ts && tsx tests/metrics.test.ts",
+    "test": "tsx tests/parse.test.ts && tsx tests/metrics.test.ts && tsx tests/grades.test.ts",
     "prebuild": "tsx scripts/build-search-index.ts",
     "predev": "tsx scripts/build-search-index.ts"
   },

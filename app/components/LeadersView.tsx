@@ -11,6 +11,7 @@ import type { Position } from "@/lib/types";
 import ChipRow from "./ChipRow";
 import HelpPopover from "./HelpPopover";
 import PlayerAvatar from "./PlayerAvatar";
+import LeaderCover from "./LeaderCover";
 import RowList from "./RowList";
 import Segmented from "./Segmented";
 import { trackFilters } from "./track";
@@ -111,6 +112,20 @@ export default function LeadersView({
         </p>
       </div>
 
+      {ranked.length > 0 && (
+        <LeaderCover
+          unit={c.kind === "pct" ? "%" : c.kind === "time" ? "분" : mode === "avg" ? "경기당" : "합계"}
+          items={ranked.slice(0, 3).map((r) => ({
+            playerNo: r.row.playerNo,
+            nameKo: r.row.nameKo,
+            teamCode: r.row.teamCode,
+            teamName: r.row.teamName,
+            rank: r.rank,
+            value: show(r.value, cat, mode),
+            sub: `${r.row.games}경기${r.row.sub ? ` · ${r.row.sub}` : ""}`,
+          }))}
+        />
+      )}
       {ranked.length === 0 ? (
         <div role="status" className="surface-card rounded-container px-4 py-8 text-center text-body text-ink-2">
           조건에 맞는 선수가 없어요

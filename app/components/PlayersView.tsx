@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { POSITION_LABEL, positionLabel } from "@/lib/format";
 import type { Position } from "@/lib/types";
+import type { Grade } from "@/lib/grades";
+import { teamColor } from "@/lib/teams";
 import ChipRow from "./ChipRow";
+import GradeBadge from "./GradeBadge";
 import PlayerAvatar from "./PlayerAvatar";
 import RowList from "./RowList";
 import Segmented from "./Segmented";
@@ -25,6 +28,8 @@ export interface PlayerRow {
   rpg: number;
   apg: number;
   pts: number;
+  /** 마지막 시즌 종합 등급 */
+  grade: { g: Grade; pct: number; season: string } | null;
 }
 
 type Pos = "all" | Position;
@@ -127,6 +132,7 @@ export default function PlayersView({ rows, teams }: { rows: PlayerRow[]; teams:
                   {r.teamName} · {positionLabel(r.pos)} · {r.span}
                 </span>
               </span>
+              {r.grade && <GradeBadge grade={r.grade.g} pct={r.grade.pct} team={teamColor(r.team)} size="sm" />}
               <span className="tabular shrink-0 text-right text-sub text-ink-2">
                 <span className="block font-bold text-ink">{r.ppg.toFixed(1)}점</span>
                 <span className="block text-caption text-ink-3">{r.games}경기</span>
@@ -157,6 +163,12 @@ export default function PlayersView({ rows, teams }: { rows: PlayerRow[]; teams:
                   {r.ko}
                 </Link>
               ),
+            },
+            {
+              key: "grade",
+              header: "등급",
+              align: "center",
+              cell: (r) => (r.grade ? <GradeBadge grade={r.grade.g} pct={r.grade.pct} team={teamColor(r.team)} size="sm" /> : <span className="text-ink-3">–</span>),
             },
             { key: "team", header: "팀(마지막)", align: "left", cell: (r) => r.teamName },
             { key: "pos", header: "포지션", align: "left", cell: (r) => positionLabel(r.pos) },
