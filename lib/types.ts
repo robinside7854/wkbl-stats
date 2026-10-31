@@ -170,6 +170,8 @@ export interface PlayerIndexRow {
   lastSeason: string;
   seasons: number;
   career: StatLine & { games: number };
+  /** 공홈 프로필 (아직 안 받았으면 null) */
+  profile: PlayerProfile | null;
 }
 
 /** data/processed/player/{번호}.json — 선수 상세 */
@@ -185,6 +187,7 @@ export interface PlayerDetail {
   /** 마지막 시즌의 경기 기록 */
   recentGames: GameLogLine[];
   recentSeason: string;
+  profile: PlayerProfile | null;
 }
 
 export interface CareerHigh {
@@ -211,5 +214,31 @@ export interface TeamCode {
 
 export interface TeamColor {
   primary: string;
+  text: string;
+}
+
+/** 선수 프로필 (공홈 선수 상세 화면 — 현역 detail.asp / 은퇴 detail2.asp) */
+export interface PlayerProfile {
+  /** 등번호 (공홈 "No.23" — 지금 또는 마지막 팀 기준) */
+  backNumber: string | null;
+  /** 공홈 표기 팀 이름, 예: "우리은행 우리WON" */
+  teamLabel: string | null;
+  position: Position | null;
+  heightCm: number | null;
+  /** YYYY-MM-DD */
+  birthDate: string | null;
+  school: string | null;
+  draft: DraftInfo | null;
+}
+
+export interface DraftInfo {
+  year: number;
+  round: number | null;
+  pick: number | null;
+  /** 전체 순위 */
+  overall: number | null;
+  /** 뽑은 팀(공홈 표기) */
+  team: string | null;
+  /** 원문 한 줄 */
   text: string;
 }

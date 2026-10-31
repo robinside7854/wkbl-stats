@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { isRegularLeague, minutesToSec, parseBoxScore, parseMonthOptions, parseSchedule, parseSeasonOptions } from "../scripts/parse";
+import { isRegularLeague, minutesToSec, parseBoxScore, parseDraft, parseMonthOptions, parseProfile, parseSchedule, parseSeasonOptions } from "../scripts/parse";
 
 const fx = (f: string) => readFileSync(join(import.meta.dirname, "fixtures", f), "utf8");
 
@@ -56,4 +56,17 @@ assert.deepEqual(parseMonthOptions(fx("schedule-page-047.html")), ["202611", "20
 
 assert.equal(minutesToSec("35:02"), 2102);
 assert.equal(minutesToSec("-"), 0);
+// 선수 프로필: 현역(detail.asp)·신인(출신교 없음)·은퇴(detail2.asp, 드래프트 없음). 주석 안 옛 팀 태그는 무시
+const kim = parseProfile(fx("profile-095104.html"))!;
+assert.deepEqual(
+  [kim.backNumber, kim.teamLabel, kim.position, kim.heightCm, kim.birthDate, kim.school, kim.draft?.year, kim.draft?.round, kim.draft?.pick, kim.draft?.overall, kim.draft?.team],
+  ["23", "우리은행 우리WON", "F", 180, "1990-02-27", "명신여자고등학교", 2008, 1, 2, 2, "금호생명 레드윙스"],
+);
+const rookie = parseProfile(fx("profile-095937.html"))!;
+assert.deepEqual([rookie.backNumber, rookie.school, rookie.draft?.year, rookie.draft?.overall], ["3", null, 2026, 1]);
+const retired = parseProfile(fx("profile2-002008.html"))!;
+assert.deepEqual([retired.backNumber, retired.teamLabel, retired.heightCm, retired.birthDate, retired.draft], ["09", "금호생명 레드윙스", 175, "1979-11-21", null]);
+assert.equal(parseProfile("<div>선수 정보가 없습니다</div>"), null);
+assert.equal(parseDraft("-"), null);
+
 console.log("parse ok");

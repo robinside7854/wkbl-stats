@@ -13,7 +13,7 @@ import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { PROCESSED_DIR, RAW_DIR, rawPath } from "./config";
 import { exists, readRaw } from "./http";
-import { isRegularLeague, parseBoxScore, parseSchedule, parseSeasonOptions } from "./parse";
+import { isRegularLeague, parseBoxScore, parseProfile, parseSchedule, parseSeasonOptions } from "./parse";
 import { addLine, emptyLine, isDoubleDouble } from "../lib/metrics";
 import { buildStandings } from "../lib/standings";
 import type {
@@ -265,7 +265,11 @@ async function main() {
   }
 
   const index: PlayerIndexRow[] = [];
+  let withProfile = 0;
   for (const c of careers.values()) {
+    const profileFile = rawPath.profile(c.playerNo);
+    const profile = (await exists(profileFile)) ? parseProfile(await readRaw(profileFile)) : null;
+    if (profile) withProfile++;
     const position = mostCommon(c.positions);
     const lastTeam = c.seasons.at(-1)?.teamCode ?? "";
     index.push({
@@ -278,6 +282,7 @@ async function main() {
       lastSeason: c.lastSeason,
       seasons: c.seasons.length,
       career: { ...c.line, games: c.games },
+      profile,
     });
     const detail: PlayerDetail = {
       playerNo: c.playerNo,
@@ -289,6 +294,7 @@ async function main() {
       highs: HIGH_KEYS.map((k) => c.highs.get(k)).filter((h): h is CareerHigh => !!h),
       recentGames: [...c.lastLogs].reverse(),
       recentSeason: c.lastSeason,
+      profile,
     };
     await writeJson(join(PROCESSED_DIR, "player", `${c.playerNo}.json`), detail);
   }
@@ -299,7 +305,7 @@ async function main() {
   await writeJson(join(PROCESSED_DIR, "meta.json"), { processedAt: new Date().toISOString(), fetchedAt: fetchLog.finished ?? null });
 
   const warnCount = outs.reduce((a, o) => a + o.warnings.length, 0);
-  console.log(`시즌 ${summaries.length} · 선수 ${index.length} · 경고 ${warnCount}`);
+  console.log(`시즌 ${summaries.length} · 선수 ${index.length}(프로필 ${withProfile}) · 경고 ${warnCount}`);
 }
 
 main().catch((e) => {

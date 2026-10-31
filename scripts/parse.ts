@@ -2,7 +2,7 @@
 // 공홈은 JSON 이 아니라 ASP 가 그린 HTML 을 준다. 표를 정규식으로 읽으므로 공홈 화면이 바뀌면 여기가 깨진다 —
 // 그래서 머리글 순서를 먼저 확인하고(checkBoxHeader), 다르면 조용히 틀린 숫자를 만들지 않고 예외를 던진다.
 // 수집(fetch.ts)과 가공(process.ts)이 같이 쓴다. 표본: tests/fixtures (2026-10-30 GitHub Actions 조사 응답).
-import type { BoxPlayerLine, BoxScore, BoxTeam, Position, ScheduleGame, SeasonInfo, StatLine } from "../lib/types";
+import type { BoxPlayerLine, BoxScore, BoxTeam, DraftInfo, PlayerProfile, Position, ScheduleGame, SeasonInfo, StatLine } from "../lib/types";
 
 const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", "#39": "'" };
 
@@ -208,4 +208,64 @@ export function parseBoxScore(html: string): BoxScore | null {
   if (teams.length !== 2) return null;
   if (teams.every((t) => t.players.length === 0)) return null;
   return { teams };
+}
+
+// ─── 선수 프로필 (GET /player/detail.asp — 현역, /player/detail2.asp — 은퇴) ───
+
+/** 프로필 항목 한 줄: <li><span …>포지션</span> - F</li> */
+function profileItem(block: string, labelKo: string): string | null {
+  const m = block.match(new RegExp(`data-kr="${labelKo}"[^>]*>[^<]*</span>\\s*-\\s*([^<]*)<`));
+  const v = m ? decodeHtml(m[1]) : "";
+  return v && v !== "-" ? v : null;
+}
+
+/**
+ * "2008 WKBL 신입선수 선발회 / 1라운드 / 2순위 (전체 2순위) / 금호생명 레드윙스" → 연도·라운드·순위·전체 순위·팀.
+ * 형식이 다르면 읽을 수 있는 것만 채우고 원문은 text 에 남긴다.
+ */
+export function parseDraft(text: string): DraftInfo | null {
+  const t = text.replace(/\s+/g, " ").trim();
+  const year = Number(t.match(/^(\d{4})/)?.[1]);
+  if (!t || !Number.isFinite(year)) return null;
+  const n = (re: RegExp) => {
+    const v = t.match(re)?.[1];
+    return v ? Number(v) : null;
+  };
+  const parts = t.split("/").map((s) => s.trim());
+  const last = parts.length >= 3 ? parts[parts.length - 1] : null;
+  return {
+    year,
+    round: n(/(\d+)\s*라운드/),
+    pick: n(/\/\s*(\d+)\s*순위/),
+    overall: n(/전체\s*(\d+)\s*순위/),
+    team: last && !/순위|라운드/.test(last) ? last : null,
+    text: t,
+  };
+}
+
+/** 선수 상세 화면 → 프로필. 프로필 상자가 없으면 null (그 번호가 다른 화면에 있을 수 있다 — 현역 detail ↔ 은퇴 detail2) */
+export function parseProfile(html: string): PlayerProfile | null {
+  // 주석 안의 옛 태그(<!-- <span class="txt_team">[]</span> -->)를 먼저 지운다. 현역은 profile_view, 은퇴는 profile_view01 retired
+  const clean = html.replace(/<!--[\s\S]*?-->/g, "");
+  const start = clean.search(/class="profile_view(01)?[ "]/);
+  const view = start >= 0 ? clean.slice(start, start + 8000) : null;
+  if (!view || !/tit_name/.test(view)) return null;
+  const title = view.match(/class="tit_name">([\s\S]*?)<\/h3>/)?.[1] ?? "";
+  const backNumber = title.match(/No\.\s*(\d+)/)?.[1] ?? null;
+  const teamLabel = decodeHtml(title.match(/class="txt_team[^"]*"[^>]*>\[([^\]]*)\]/)?.[1] ?? "") || null;
+  const pos = profileItem(view, "포지션");
+  const height = profileItem(view, "신장");
+  const birth = profileItem(view, "생년월일");
+  const draftText = view.match(/data-kr="드래프트"[^>]*>[^<]*<\/span>\s*<br\s*\/?>([\s\S]*?)<\/li>/)?.[1];
+  const birthM = birth?.match(/^(\d{4})\.(\d{2})\.(\d{2})/);
+  const heightN = Number(height?.match(/(\d{3})/)?.[1]);
+  return {
+    backNumber,
+    teamLabel,
+    position: pos ? toPosition(pos) : null,
+    heightCm: Number.isFinite(heightN) && heightN > 100 ? heightN : null,
+    birthDate: birthM ? `${birthM[1]}-${birthM[2]}-${birthM[3]}` : null,
+    school: profileItem(view, "출신학교"),
+    draft: draftText ? parseDraft(decodeHtml(draftText.replace(/<[^>]*>/g, " "))) : null,
+  };
 }

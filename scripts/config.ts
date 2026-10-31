@@ -28,6 +28,15 @@ export const boxBody = (season: string, gameNo: number) => `season_gu=${season}&
  */
 export const REQUEST_GAP_MS = 1500;
 
+/** 선수 상세 화면 — 현역(player_group 12)은 detail.asp, 은퇴(11)는 detail2.asp. 어느 쪽인지 몰라 현역부터 본다 */
+export const profileUrls = (pno: string) => [
+  `${WKBL}/player/detail.asp?player_group=12&tcode=&pno=${pno}`,
+  `${WKBL}/player/detail2.asp?player_group=11&tcode=&pno=${pno}`,
+];
+
+/** 현역 선수 프로필을 다시 받는 간격(일) — 이적·등번호 바뀜을 따라가려고. 은퇴 선수는 한 번만 */
+export const PROFILE_REFRESH_DAYS = 30;
+
 /** 박스스코어가 있는 첫 시즌 (2003 여름리그). 이전 시즌은 경기 기록 화면이 비어 있다 */
 export const FIRST_BOX_SEASON = "013";
 
@@ -40,4 +49,7 @@ export const rawPath = {
   scheduleMonth: (season: string, ym: string) => join(RAW_DIR, season, "schedule", `${ym}.html.gz`),
   box: (season: string, gameNo: number) => join(RAW_DIR, season, "box", `${String(gameNo).padStart(3, "0")}.html.gz`),
   fetchLog: () => join(RAW_DIR, "fetch-log.json"),
+  profile: (pno: string) => join(RAW_DIR, "profiles", `${pno}.html.gz`),
+  /** 프로필을 받은 날짜 {선수 번호: "YYYY-MM-DD"} — 파일 시각은 checkout 때 바뀌어 믿을 수 없어서 따로 적는다 */
+  profileLog: () => join(RAW_DIR, "profiles", "_fetched.json"),
 };

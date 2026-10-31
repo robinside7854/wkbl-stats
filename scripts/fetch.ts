@@ -5,10 +5,12 @@
 // 요청 줄이기: 이미 받은 끝난 경기의 박스스코어는 다시 받지 않는다(끝난 경기 기록은 바뀌지 않음).
 //   단 최근 3일 안 경기는 공홈이 기록을 고칠 수 있어 다시 받는다.
 // 실패한 시즌·경기는 건너뛰고 계속, 마지막에 실패 목록을 찍는다 (코딩 규칙).
-import { writeFile } from "node:fs/promises";
-import { BOX_URL, FIRST_BOX_SEASON, boxBody, rawPath, scheduleListUrl, schedulePageUrl } from "./config";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
+import { BOX_URL, FIRST_BOX_SEASON, PROCESSED_DIR, PROFILE_REFRESH_DAYS, boxBody, profileUrls, rawPath, scheduleListUrl, schedulePageUrl } from "./config";
 import { exists, getBytes, postFormBytes, requestCount, saveRaw, utf8 } from "./http";
-import { isRegularLeague, parseBoxScore, parseMonthOptions, parseSchedule, parseSeasonOptions } from "./parse";
+import { isRegularLeague, parseBoxScore, parseMonthOptions, parseProfile, parseSchedule, parseSeasonOptions } from "./parse";
+import type { PlayerIndexRow } from "../lib/types";
 
 const REFETCH_DAYS = 3;
 
@@ -75,6 +77,48 @@ async function fetchSeason(season: string): Promise<SeasonResult> {
   return r;
 }
 
+/**
+ * 선수 프로필(등번호·포지션·키·생년월일·출신교·드래프트). 대상 = 가공본 선수 목록(어제까지 뛴 선수 — 새 선수는 다음 날).
+ * 처음 보는 선수는 받고, 지금 시즌 선수는 PROFILE_REFRESH_DAYS 마다 다시. 현역 화면에 없으면 은퇴 화면을 본다(선수당 1~2회).
+ */
+async function fetchProfiles(currentSeason: string | null, limit: number): Promise<{ fetched: number; missing: string[]; failures: string[] }> {
+  const players = JSON.parse(await readFile(`${PROCESSED_DIR}/players.json`, "utf8").catch(() => "[]")) as PlayerIndexRow[];
+  const log = JSON.parse(await readFile(rawPath.profileLog(), "utf8").catch(() => "{}")) as Record<string, string>;
+  const today = kstToday();
+  const due = players.filter((p) => {
+    const last = log[p.playerNo];
+    if (!last) return true;
+    return p.lastSeason === currentSeason && daysBetween(last, today) >= PROFILE_REFRESH_DAYS;
+  });
+  const out = { fetched: 0, missing: [] as string[], failures: [] as string[] };
+  for (const p of due.slice(0, limit)) {
+    try {
+      let saved = false;
+      for (const url of profileUrls(p.playerNo)) {
+        const bytes = await getBytes(url);
+        if (parseProfile(utf8(bytes))) {
+          await saveRaw(rawPath.profile(p.playerNo), bytes);
+          saved = true;
+          break;
+        }
+      }
+      // 두 화면 모두 프로필이 없어도 날짜는 적는다(매일 다시 두드리지 않게)
+      log[p.playerNo] = today;
+      if (saved) out.fetched++;
+      else out.missing.push(`${p.playerNo} ${p.nameKo}`);
+    } catch (e) {
+      out.failures.push(`프로필 ${p.playerNo} ${p.nameKo}: ${String(e)}`);
+    }
+  }
+  await mkdir(dirname(rawPath.profileLog()), { recursive: true });
+  await writeFile(rawPath.profileLog(), JSON.stringify(Object.fromEntries(Object.entries(log).sort()), null, 1) + "\n");
+  if (due.length > limit) console.log(`  프로필: 남은 ${due.length - limit}명은 다음 실행에서`);
+  return out;
+}
+
+/** 한 번에 받을 프로필 최대 수 (처음 약 470명 ≈ 12~20분) */
+const PROFILE_LIMIT = 700;
+
 async function main() {
   const args = process.argv.slice(2);
   const started = new Date().toISOString();
@@ -118,10 +162,14 @@ async function main() {
     }
   }
 
-  const failures = results.flatMap((r) => r.failures);
+  // 선수 프로필 — 시즌 수집 뒤에 (일정만 받는 "list" 모드는 위에서 이미 끝남)
+  const profiles = await fetchProfiles(selected, PROFILE_LIMIT);
+  console.log(`  프로필: 새로 ${profiles.fetched}명` + (profiles.missing.length ? ` · 공홈에 없음 ${profiles.missing.length}명` : ""));
+
+  const failures = [...results.flatMap((r) => r.failures), ...profiles.failures];
   await writeFile(
     rawPath.fetchLog(),
-    JSON.stringify({ started, finished: new Date().toISOString(), requests: requestCount, targets, results }, null, 2) + "\n",
+    JSON.stringify({ started, finished: new Date().toISOString(), requests: requestCount, targets, results, profiles }, null, 2) + "\n",
   );
   console.log(`요청 ${requestCount}회`);
   if (failures.length) {
