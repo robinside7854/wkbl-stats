@@ -82,8 +82,8 @@ export default function PlayerHero({
             </p>
             {/* deslop-ignore-next-line 11 */}
             <h1 className="mt-1 text-[2.25rem] font-black leading-[1.1] tracking-tight [overflow-wrap:anywhere] sm:text-5xl lg:text-6xl">{nameKo}</h1>
-            <p className="mt-1 text-sub font-medium opacity-85 sm:text-body">
-              {nameEn && <span>{nameEn} · </span>}
+            {nameEn && <p className="mt-1 text-sub font-medium opacity-85 sm:text-body">{nameEn}</p>}
+            <p className="text-sub font-medium opacity-85 sm:text-body">
               <span className="whitespace-nowrap">{positionText}</span>
               {span && <span className="whitespace-nowrap"> · {span}</span>}
             </p>
