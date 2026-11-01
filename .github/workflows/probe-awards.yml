@@ -1,0 +1,23 @@
+# 조사용(한 번): 이 브랜치에 푸시하면 역대 수상 화면을 받아 probe/out 을 커밋한다
+name: probe-awards
+on:
+  push:
+    branches: [claude/probe-awards]
+    paths: [probe/awards.mjs, .github/workflows/probe-awards.yml]
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+      - run: node probe/awards.mjs
+      - run: |
+          git config user.name "robinside7854"
+          git config user.email "252681033+robinside7854@users.noreply.github.com"
+          git add probe/out
+          git commit -m "조사: 역대 수상 화면 응답" || exit 0
+          git push
