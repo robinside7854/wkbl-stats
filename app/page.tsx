@@ -1,9 +1,9 @@
 // 홈: 이번 시즌 한눈에 — 득점 1위 표지 · 다음 경기 · 최근 경기 · 팀 순위 카드 · 능력치 상위 · 부문별 상위 5명
 import Link from "next/link";
-import { defaultSeason, getGames, getSeasonPlayers, getSeasons, getStandings, isOngoing, teamGames, teamName } from "@/lib/data";
+import { defaultSeason, getGames, getSeasonPlayers, getSeasons, getStandings, teamGames, teamName } from "@/lib/data";
 import { longDate } from "@/lib/format";
 import { lastGameDay, nextGameDay } from "@/lib/games";
-import { rankBy } from "@/lib/leaders";
+import { attemptThresholds, topLeaders, type LeaderPlayer } from "@/lib/leaders";
 import { perGame, seasonQualify } from "@/lib/metrics";
 import GameCard from "./components/GameCard";
 import { IconChevronRight } from "./components/icons";
@@ -29,10 +29,15 @@ export default function HomePage() {
   // 다음 경기: 맨 위 시즌(개막 전이면 새 시즌 일정)에서
   const newest = getSeasons()[0];
   const next = nextGameDay(getGames(newest.code));
-  const rule = seasonQualify(teamGames(code), isOngoing(code));
+  // 리더보드 기본과 같은 표본 기준(팀 경기 절반 이상)
+  const rule = seasonQualify(teamGames(code), false);
   const players = getSeasonPlayers(code);
+  const leaderPlayers: LeaderPlayer[] = players.filter((p) => p.games >= rule.minGames).map((p) => ({ ...p, id: p.playerNo, teamName: teamName(p.teamCode, code) }));
+  const thr = attemptThresholds(leaderPlayers, rule);
+  const top5 = (key: "pts" | "reb" | "ast") => topLeaders(leaderPlayers, key, "perGame", 5, thr);
   const tn = (c: string) => teamName(c, code);
-  const topScorer = rankBy(players, "pts", "avg", rule)[0] ?? null;
+  const topEntry = top5("pts")[0];
+  const topScorer = topEntry ? players.find((p) => p.playerNo === topEntry.player.id) ?? null : null;
   const graded = players
     .filter((p) => p.grade)
     .sort((a, b) => b.grade!.overall - a.grade!.overall)
@@ -52,15 +57,15 @@ export default function HomePage() {
         leader={
           topScorer
             ? {
-                playerNo: topScorer.row.playerNo,
-                nameKo: topScorer.row.nameKo,
-                teamCode: topScorer.row.teamCode,
-                teamName: tn(topScorer.row.teamCode),
-                ppg: perGame(topScorer.row.pts, topScorer.row.games).toFixed(1),
-                rpg: perGame(topScorer.row.reb, topScorer.row.games).toFixed(1),
-                apg: perGame(topScorer.row.ast, topScorer.row.games).toFixed(1),
-                games: topScorer.row.games,
-                grade: topScorer.row.grade,
+                playerNo: topScorer.playerNo,
+                nameKo: topScorer.nameKo,
+                teamCode: topScorer.teamCode,
+                teamName: tn(topScorer.teamCode),
+                ppg: perGame(topScorer.pts, topScorer.games).toFixed(1),
+                rpg: perGame(topScorer.reb, topScorer.games).toFixed(1),
+                apg: perGame(topScorer.ast, topScorer.games).toFixed(1),
+                games: topScorer.games,
+                grade: topScorer.grade,
               }
             : null
         }
@@ -120,7 +125,7 @@ export default function HomePage() {
           ) : (
             <div className="grid gap-3 md:grid-cols-3">
               {LEAD.map((l) => (
-                <LeaderMini key={l.key} title={`${l.title} (경기당)`} unit={l.unit} rows={rankBy(players, l.key, "avg", rule).slice(0, 5)} teamName={tn} />
+                <LeaderMini key={l.key} title={`${l.title} (경기당)`} unit={l.unit} entries={top5(l.key)} />
               ))}
             </div>
           )}

@@ -108,7 +108,7 @@ export default function PlayerHero({
         </div>
       </div>
       <div className="mx-auto max-w-page px-4">
-        <dl className="tabular -mt-px grid grid-cols-3 gap-px overflow-hidden rounded-b-container border border-t-0 border-line bg-line shadow-card sm:grid-cols-6">
+        <dl className="tabular -mt-px grid grid-cols-4 gap-px overflow-hidden rounded-b-container border border-t-0 border-line bg-line shadow-card lg:grid-cols-8">
           {tiles.map((t) => (
             <div key={t.label} className="min-w-0 bg-surface px-1.5 py-3 text-center sm:px-3">
               <dt className="truncate text-caption font-medium text-ink-3 sm:text-sub">{t.label}</dt>

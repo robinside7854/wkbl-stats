@@ -12,9 +12,9 @@
     "process": "tsx scripts/process.ts",
     "report:players": "tsx scripts/report-players.ts",
     "typecheck": "tsc --noEmit -p tsconfig.scripts.json && tsc --noEmit -p tsconfig.json",
-    "test": "tsx tests/parse.test.ts && tsx tests/metrics.test.ts && tsx tests/grades.test.ts",
-    "prebuild": "tsx scripts/build-search-index.ts",
-    "predev": "tsx scripts/build-search-index.ts"
+    "test": "tsx tests/parse.test.ts && tsx tests/metrics.test.ts && tsx tests/grades.test.ts && tsx tests/leaders.test.ts && tsx tests/players-grid.test.ts",
+    "prebuild": "tsx scripts/build-search-index.ts && tsx scripts/build-season-players.ts",
+    "predev": "tsx scripts/build-search-index.ts && tsx scripts/build-season-players.ts"
   },
   "engines": {
     "node": ">=20"

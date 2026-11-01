@@ -15,6 +15,8 @@ export interface SeasonRow {
   ast: string;
   stl: string;
   blk: string;
+  tov: string;
+  pf: string;
   fg: string;
   three: string;
   ft: string;
@@ -48,6 +50,8 @@ export default function SeasonTable({ rows }: { rows: SeasonRow[] }) {
         { key: "min", label: "출전", value: r.min },
         { key: "stl", label: "스틸", value: r.stl },
         { key: "blk", label: "블록", value: r.blk },
+        { key: "tov", label: "턴오버", value: r.tov },
+        { key: "pf", label: "파울", value: r.pf },
         { key: "fg", label: "야투%", value: r.fg },
         { key: "three", label: "3점%", value: r.three },
         { key: "ft", label: "자유투%", value: r.ft },
@@ -63,6 +67,8 @@ export default function SeasonTable({ rows }: { rows: SeasonRow[] }) {
         { key: "ast", header: "어시", cell: (r) => r.ast },
         { key: "stl", header: "스틸", cell: (r) => r.stl },
         { key: "blk", header: "블록", cell: (r) => r.blk },
+        { key: "tov", header: "턴오버", cell: (r) => r.tov },
+        { key: "pf", header: "파울", cell: (r) => r.pf },
         { key: "fg", header: "야투%", cell: (r) => r.fg },
         { key: "three", header: "3점%", cell: (r) => r.three },
         { key: "ft", header: "자유투%", cell: (r) => r.ft },

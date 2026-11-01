@@ -37,7 +37,8 @@ const nextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: SECURITY_HEADERS },
-      { source: "/search-index.json", headers: [{ key: "Cache-Control", value: "public, max-age=300, stale-while-revalidate=3600" }] },
+      // 우리 데이터 파일 — 하루 한 번 바뀌므로 브라우저 5분 (kbl-stats DATA_CACHE 와 같게)
+      ...["/search-index.json", "/season-players/:path*"].map((source) => ({ source, headers: [{ key: "Cache-Control", value: "public, max-age=300, stale-while-revalidate=3600" }] })),
     ];
   },
 };

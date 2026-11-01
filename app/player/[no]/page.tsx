@@ -41,6 +41,8 @@ function avgRow(key: string, label: string, team: string, tName: string, s: Stat
     ast: f(s.ast),
     stl: f(s.stl),
     blk: f(s.blk),
+    tov: f(s.tov),
+    pf: f(s.pf),
     fg: formatPct1(pct(fgm(s), fga(s))),
     three: formatPct1(pct(s.threePm, s.threePa)),
     ft: formatPct1(pct(s.ftm, s.fta)),
@@ -65,7 +67,6 @@ export default async function PlayerPage({ params }: { params: Promise<{ no: str
   const seasons = getSeasons();
   const label = (c: string) => seasonShortLabel(seasons.find((s) => s.code === c)?.label ?? c);
   const last = p.seasons[0];
-  const first = p.seasons.at(-1);
   const c = p.career;
 
   const rows: SeasonRow[] = [
@@ -93,13 +94,17 @@ export default async function PlayerPage({ params }: { params: Promise<{ no: str
     prof?.school ? { label: "출신교", value: prof.school } : null,
     prof?.draft ? { label: "드래프트", value: draftText(prof.draft) } : null,
   ].filter((f): f is HeroFact => f !== null);
+  // 통산 8칸 (kbl-stats 선수 머리말과 같은 구성 — 경기·경기당 기록·통산 성공률)
+  const pg = (v: number) => perGame(v, c.games).toFixed(1);
   const tiles: HeroTile[] = [
-    { label: "통산 경기", value: String(c.games), sub: `${p.seasons.length}시즌` },
-    { label: "득점", value: perGame(c.pts, c.games).toFixed(1), sub: "경기당" },
-    { label: "리바운드", value: perGame(c.reb, c.games).toFixed(1), sub: "경기당" },
-    { label: "어시스트", value: perGame(c.ast, c.games).toFixed(1), sub: "경기당" },
-    { label: "TS%", value: formatPct1(tsPct(c)), sub: "통산" },
-    { label: "통산 득점", value: c.pts.toLocaleString("ko-KR") },
+    { label: "경기", value: String(c.games), sub: "통산" },
+    { label: "득점", value: pg(c.pts), sub: "경기당" },
+    { label: "리바운드", value: pg(c.reb), sub: "경기당" },
+    { label: "어시스트", value: pg(c.ast), sub: "경기당" },
+    { label: "스틸", value: pg(c.stl), sub: "경기당" },
+    { label: "블록", value: pg(c.blk), sub: "경기당" },
+    { label: "야투%", value: formatPct1(pct(fgm(c), fga(c))), sub: "통산" },
+    { label: "3점%", value: formatPct1(pct(c.threePm, c.threePa)), sub: "통산" },
   ];
   const graded = p.seasons.filter((s) => s.grade);
   const cardSeasons: CardSeason[] = graded.map((s) => ({
@@ -111,7 +116,6 @@ export default async function PlayerPage({ params }: { params: Promise<{ no: str
     grade: s.grade!,
     values: Object.fromEntries((Object.keys(COMPONENTS) as ComponentKey[]).map((k) => [k, componentText(componentValue(s, k), k)])) as Record<ComponentKey, string>,
   }));
-  const span = first && last ? (first === last ? label(first.seasonCode) : `${label(first.seasonCode)} ~ ${label(last.seasonCode)}`) : "";
 
   return (
     <PageShell view="player">
@@ -121,7 +125,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ no: str
         profile={prof}
         teamCode={last?.teamCode ?? ""}
         teamLabel={last ? `${label(last.seasonCode)} ${teamName(last.teamCode, last.seasonCode)}` : ""}
-        span={span}
+        span=""
         positionText={positionLabel(prof?.position ?? p.position)}
         facts={facts}
         tiles={tiles}

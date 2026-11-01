@@ -61,12 +61,12 @@ WKBL 공홈 `https://www.wkbl.or.kr` 은 JSON 이 아니라 **ASP 가 그린 HTM
 
 ## 폴더 구조
 ```
-scripts/  config.ts(공홈 주소·raw 위치·요청 간격) http.ts(간격 지키는 요청·gzip 저장) parse.ts(HTML 읽기) fetch.ts(수집) process.ts(가공) build-search-index.ts(prebuild)
-lib/      types.ts metrics.ts leaders.ts standings.ts games.ts teams.ts format.ts glossary.ts data.ts(화면용 읽기, server-only) analytics.ts
+scripts/  config.ts(공홈 주소·raw 위치·요청 간격) http.ts(간격 지키는 요청·gzip 저장) parse.ts(HTML 읽기) fetch.ts(수집) process.ts(가공) build-search-index.ts·build-season-players.ts(prebuild — public/season-players/{시즌}.json, git 제외)
+lib/      types.ts metrics.ts leaders.ts(kbl-stats 와 같은 부문·단위 경기당/30분당/합계·시도 기준·정렬) players-grid.ts(선수 탭 카드 정렬·필터) standings.ts games.ts teams.ts format.ts glossary.ts data.ts(화면용 읽기, server-only) analytics.ts
 app/      page.tsx(홈) players/ player/[no]/ records/(통산) season/[code]/{leaders,standings,schedule}/ glossary/ robots.ts
-app/components/  2026-10-31 그림 중심: PlayerHero(팀 색 띠·유니폼 등번호·프로필)·PlayerCard(6축 레이더·세부 능력치 막대)·GradeBadge·LeaderCover(리더보드 1~3위)·HomeHero(득점 1위 표지)·StandingsCards·TopGraded / kbl-stats 에서 옮김: RowList·HelpPopover·ChipRow·Segmented·Skeleton·icons·track·Analytics·useMedia·webFont / 새로: SiteNav(줄임)·PageShell·SourceFooter·TeamBadge·PlayerAvatar·GameCard·StandingsTable·LeadersView·PlayersView·SeasonTable·CareerTrend·ScheduleView·PlayerSearch(줄임)
+app/components/  2026-10-31 그림 중심: PlayerHero(팀 색 띠·유니폼 등번호·프로필·통산 8칸)·PlayerCard(6축 레이더·세부 능력치 막대)·GradeBadge·HomeHero(득점 1위 표지)·StandingsCards·TopGraded / kbl-stats 에서 옮김: RowList·FilterSheet·HelpPopover·ChipRow·Segmented·Skeleton·icons·track·Analytics·useMedia·webFont / 새로: SiteNav(줄임)·PageShell·SourceFooter·TeamBadge·PlayerAvatar·GameCard·StandingsTable·LeadersView(머리글 정렬·필터 시트)·PlayersView(시즌 카드 격자)·SeasonTable·CareerTrend·ScheduleView·PlayerSearch(줄임)
 data/codes/  teams.json(팀 색) site.json(indexable·officialSite)
-tests/    parse.test.ts(공홈 표본 fixtures — 박스스코어·일정·프로필) metrics.test.ts grades.test.ts
+tests/    parse.test.ts(공홈 표본 fixtures — 박스스코어·일정·프로필) metrics.test.ts grades.test.ts leaders.test.ts players-grid.test.ts
 ```
 
 ## 배포 규칙 (kbl-stats 와 같게 — Vercel 연결 뒤부터)
@@ -83,7 +83,7 @@ tests/    parse.test.ts(공홈 표본 fixtures — 박스스코어·일정·프�
   |---|---|---|
   | page_view | (GA 자동) | 화면 열기 |
   | nav_click | menu, place(top/bottom) | 상단·하단 메뉴 |
-  | filter_change | screen, filter, value | 시즌 선택(season) · 리더보드 category·mode·position(screen=leaders/records) · 기록 탭(screen=records filter=tab) · 선수 탭 scope·position·team · 일정 team · 선수 추이 trend_metric |
+  | filter_change | screen, filter, value | 시즌 선택(season) · 기록(screen=leaders/records) category·more_categories·mode·position·team·qualify·sort(열 키, 반대 순서는 `_asc`·`_desc`) · 기록 탭(screen=records filter=tab) · 선수 탭 season·sort(grade/ppg/height/age, 반대는 `_asc`)·grade·position·team · 일정 team · 선수 추이 trend_metric |
   | filter_reset | screen | 선수 탭 필터 초기화 |
   | help_open | topic | ⓘ 도움말 |
   | search_select | player_no, mode(go) | 상단 검색에서 선수 고르기 |
@@ -114,3 +114,4 @@ tests/    parse.test.ts(공홈 표본 fixtures — 박스스코어·일정·프�
 - 2026-10-30 (main 첫 반영): 사용자 요청으로 main 에 ff 반영 → Vercel 운영 배포 성공(https://wkbl-stats.vercel.app, 선수 471쪽·시즌 27개). site.json siteUrl·vercel.json framework 고정. 같은 날 수집 워크플로 두 번(run 3·4)이 러너를 못 받고 4초 만에 실패 — 단계가 하나도 안 돌아 코드 문제 아님, GitHub Actions 쪽(결제·한도 등) 확인을 사용자에게 요청
 - 2026-10-31: Actions 멈춤 원인 = GitHub 결제(비공개 저장소 무료 시간 소진 — "recent account payments have failed or your spending limit"). kbl-stats 매일 수집도 10-30 저녁부터 같은 이유로 멈춰 있었다. 사용자가 wkbl-stats·kbl-stats 를 **공개 저장소로 전환**(공개 저장소 Actions 는 무료·무제한) → fetch-request 047 로 수집 재확인
 - 2026-10-31 (그림 중심 개편): 사용자 "선수 프로필 필수, 숫자 중심 → KBL 처럼 직관적으로". 공홈 선수 상세에서 프로필 수집(현역·은퇴 화면 둘 다), 시즌 능력치 6축·S~F 등급·유형(lib/grades), 화면: 선수 머리말(팀 색 띠 + 사진 대신 유니폼 등번호 + 나이·키·출신교·드래프트) · 시즌 능력치 카드(레이더·세부 능력치 막대) · 리더보드 1~3위 팀 색 카드 · 홈 득점 1위 표지·팀 순위 카드·능력치 상위 · 선수 목록 등급 배지. 사진·로고는 계속 안 씀
+- 2026-11-01 (KBL 화면 싱크): 사용자 "정렬이 자유롭지 않고 쓸데없이 시즌·통산 득점이 나옴 — KBL 대시보드와 디스플레이 싱크" → ① 기록(리더보드·통산) = kbl-stats 방식: 부문 칩 6개 + "다른 부문", 표 머리글을 누르면 그 열로 정렬·한 번 더 누르면 반대, 경기당/30분당/합계, 필터 시트(포지션·팀·표본 기준), 성공률은 경기당 시도 리그 평균 이상만 순위(아래에 성공/시도), 1~3위는 흰 목록, 열 경기·출전·득점·리바·어시·스틸·블록·턴오버·파울·야투%·3점·3점%·자유투%·TS%·EFF(`lib/leaders`) ② 선수 탭 = 시즌 하나의 카드 격자(등급·포지션·이니셜·키·출생 연도·경기당 득점/리바/어시), 등급순·득점순·키순·나이순 + 다시 누르면 반대, 필터 등급·포지션·팀, 다른 시즌은 /season-players 파일 ③ 선수 머리말 활동 기간·"통산 득점" 칸 삭제 → 통산 8칸(경기·득점·리바·어시·스틸·블록·야투%·3점%), 시즌별 기록표에 턴오버·파울 ④ 홈 부문 1~5위도 같은 규칙. 검색 상자는 동명이인 구분 때문에 시즌 구간을 남김. LeaderCover 삭제. main 배포.

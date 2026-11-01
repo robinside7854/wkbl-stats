@@ -1,7 +1,6 @@
 // 지표·순위·팀 순위 계산 확인
 import assert from "node:assert/strict";
 import { efgPct, eff, emptyLine, isDoubleDouble, seasonQualify, tsPct } from "../lib/metrics";
-import { rankBy } from "../lib/leaders";
 import { buildStandings, streakText } from "../lib/standings";
 import type { ScheduleGame, StatLine } from "../lib/types";
 
@@ -20,18 +19,6 @@ assert.equal(isDoubleDouble(line({ pts: 30, reb: 9 })), false);
 // 표본 기준: 끝난 시즌 팀 30경기 → 15경기, 진행 중은 없음
 assert.equal(seasonQualify(30, false).minGames, 15);
 assert.equal(seasonQualify(30, true).minGames, 0);
-
-// 순위: 기준 미달 제외, 같은 값 같은 순위, 성공률은 최소 시도
-const rows = [
-  { ...line({ pts: 300, twoPa: 100, twoPm: 50 }), games: 20, id: "a" },
-  { ...line({ pts: 300, twoPa: 100, twoPm: 60 }), games: 20, id: "b" },
-  { ...line({ pts: 400 }), games: 10, id: "c" },
-  { ...line({ pts: 10, twoPa: 2, twoPm: 2 }), games: 20, id: "d" },
-];
-const byPts = rankBy(rows, "pts", "avg", { minGames: 15 });
-assert.deepEqual(byPts.map((r) => [r.row.id, r.rank]), [["a", 1], ["b", 1], ["d", 3]]);
-assert.deepEqual(rankBy(rows, "pts", "total", { minGames: 15 }).map((r) => r.row.id)[0], "c");
-assert.deepEqual(rankBy(rows, "fgPct", "avg", { minGames: 0 }).map((r) => r.row.id), ["b", "a"]);
 
 // 팀 순위: 승률 → 승차, 최근 5경기·연속
 const g = (no: number, h: string, a: string, hs: number, as: number): ScheduleGame => ({
