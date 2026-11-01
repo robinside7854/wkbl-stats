@@ -52,4 +52,18 @@ export const rawPath = {
   profile: (pno: string) => join(RAW_DIR, "profiles", `${pno}.html.gz`),
   /** 프로필을 받은 날짜 {선수 번호: "YYYY-MM-DD"} — 파일 시각은 checkout 때 바뀌어 믿을 수 없어서 따로 적는다 */
   profileLog: () => join(RAW_DIR, "profiles", "_fetched.json"),
+  /** 역대 수상 화면 3개 (vote 투표 수상 · stats 기록 부문 · best5) */
+  award: (name: AwardPage) => join(RAW_DIR, "awards", `${name}.html.gz`),
+  /** 수상 화면을 받은 날짜 {화면: "YYYY-MM-DD"} */
+  awardLog: () => join(RAW_DIR, "awards", "_fetched.json"),
 };
+
+// ─── 역대 수상 (2026-11-01 조사 — 공홈 히스토리 → 역대 부문별 수상자) ───
+export type AwardPage = "vote" | "stats" | "best5";
+export const AWARD_URLS: Record<AwardPage, string> = {
+  vote: `${WKBL}/history/awards_vote.asp`,
+  stats: `${WKBL}/history/awards_statistics.asp`,
+  best5: `${WKBL}/history/awards.asp`,
+};
+/** 수상 표는 시즌이 끝날 때만 바뀐다 → 7일에 한 번만 다시 받는다 */
+export const AWARD_REFRESH_DAYS = 7;

@@ -143,6 +143,8 @@ export interface SeasonSummary extends SeasonInfo {
   players: number;
   /** 마지막 경기 날짜 (없으면 "") */
   lastDate: string;
+  /** 챔피언결정전 우승 팀 (챔피언전 MVP 소속으로 판정, 없으면 null) */
+  champion: string | null;
 }
 
 /** data/processed/{시즌}/games.json 한 경기 */
@@ -175,6 +177,9 @@ export interface PlayerIndexRow {
   career: StatLine & { games: number };
   /** 공홈 프로필 (아직 안 받았으면 null) */
   profile: PlayerProfile | null;
+  /** 수상 횟수 {상 키: 횟수} — 선수 탭·검색용 요약 */
+  awardCounts: Partial<Record<AwardKey, number>>;
+  championships: number;
 }
 
 /** data/processed/player/{번호}.json — 선수 상세 */
@@ -191,6 +196,12 @@ export interface PlayerDetail {
   recentGames: GameLogLine[];
   recentSeason: string;
   profile: PlayerProfile | null;
+  /** 받은 상 (시즌 순) */
+  awards: PlayerAward[];
+  /** 우승한 시즌 (챔피언결정전 — 그 시즌 우승 팀에서 뛰었음) */
+  championships: string[];
+  /** 정규리그 1위 팀에서 뛴 시즌 */
+  regularFirsts: string[];
 }
 
 export interface CareerHigh {
@@ -244,4 +255,47 @@ export interface DraftInfo {
   team: string | null;
   /** 원문 한 줄 */
   text: string;
+}
+
+// ─── 역대 수상 (2026-11-01, 공홈 히스토리 → 역대 부문별 수상자 화면 3개) ───
+/** 우리가 쓰는 상 키 — 순서 = 화면 순서 */
+export type AwardKey =
+  | "mvp"
+  | "finalsMvp"
+  | "best5"
+  | "rookie"
+  | "defense"
+  | "sixth"
+  | "mip"
+  | "foreign"
+  | "asia"
+  | "fairPlay"
+  | "contribution"
+  | "scoring"
+  | "threePm"
+  | "threePct"
+  | "twoPct"
+  | "ftPct"
+  | "rebounds"
+  | "assists"
+  | "steals"
+  | "blocks";
+
+/** 공홈 표 한 칸 (이름만 — 번호는 가공 때 찾는다) */
+export interface AwardEntry {
+  /** 공홈 시즌 표기 그대로 정리: "2025-2026" · "2007겨울" */
+  season: string;
+  key: AwardKey;
+  name: string;
+  /** BEST5 만 팀 표기가 있다 ("KB스타즈") */
+  team: string | null;
+  /** 기록상 값 ("18.33점") — 기록 부문만 */
+  value: string | null;
+}
+
+/** 선수에게 붙은 상 하나 */
+export interface PlayerAward {
+  key: AwardKey;
+  seasonCode: string;
+  value: string | null;
 }

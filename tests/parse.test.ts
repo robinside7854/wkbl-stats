@@ -70,3 +70,14 @@ assert.equal(parseProfile("<div>선수 정보가 없습니다</div>"), null);
 assert.equal(parseDraft("-"), null);
 
 console.log("parse ok");
+
+// 2026-11-01: 옛 시즌 하나 로고 "teamlogo_09_old.png"·"_old2" 도 팀 코드 09 (전에는 그 경기를 통째로 놓쳤다)
+{
+  const row = (logo: string) =>
+    `<tr id="20171103"><td>11/3</td><td><div class="team_versus"><div class="info_team away"><span class="frame_g"><img src="/static/images/team/teamlogo_08.png?ver=2026"></span><strong class="team_name language" data-kr="KDB생명">KDB생명</strong><em class="txt_score">66</em></div><div class="info_team home"><span class="frame_g"><img src="/static/images/team/${logo}"></span><strong class="team_name language" data-kr="KEB하나">KEB하나</strong><em class="txt_score">59</em></div></div></td><td><a href="/game/result.asp?season_gu=038&game_type=01&game_no=6">경기기록</a></td></tr>`;
+  for (const logo of ["teamlogo_09_old.png", "teamlogo_09_old2.png"]) {
+    const [g] = parseSchedule(row(logo), "038");
+    assert.equal(g?.awayCode, "09", logo);
+    assert.equal(g?.gameNo, 6);
+  }
+}

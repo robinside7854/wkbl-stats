@@ -7,9 +7,9 @@
 // 실패한 시즌·경기는 건너뛰고 계속, 마지막에 실패 목록을 찍는다 (코딩 규칙).
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { BOX_URL, FIRST_BOX_SEASON, PROCESSED_DIR, PROFILE_REFRESH_DAYS, boxBody, profileUrls, rawPath, scheduleListUrl, schedulePageUrl } from "./config";
+import { AWARD_REFRESH_DAYS, AWARD_URLS, BOX_URL, FIRST_BOX_SEASON, PROCESSED_DIR, PROFILE_REFRESH_DAYS, boxBody, type AwardPage, profileUrls, rawPath, scheduleListUrl, schedulePageUrl } from "./config";
 import { exists, getBytes, postFormBytes, requestCount, saveRaw, utf8 } from "./http";
-import { isRegularLeague, parseBoxScore, parseMonthOptions, parseProfile, parseSchedule, parseSeasonOptions } from "./parse";
+import { isRegularLeague, parseAwardsBest5, parseAwardsStats, parseAwardsVote, parseBoxScore, parseMonthOptions, parseProfile, parseSchedule, parseSeasonOptions } from "./parse";
 import type { PlayerIndexRow } from "../lib/types";
 
 const REFETCH_DAYS = 3;
@@ -116,6 +116,31 @@ async function fetchProfiles(currentSeason: string | null, limit: number): Promi
   return out;
 }
 
+/**
+ * 역대 수상 화면 3개 — 7일에 한 번(시즌이 끝날 때만 바뀐다). 읽어서 한 줄이라도 나와야 저장한다(화면이 바뀌면 전 파일 유지 + 실패 목록)
+ */
+async function fetchAwards(): Promise<{ fetched: string[]; failures: string[] }> {
+  const log = JSON.parse(await readFile(rawPath.awardLog(), "utf8").catch(() => "{}")) as Record<string, string>;
+  const today = kstToday();
+  const parsers: Record<AwardPage, (h: string) => unknown[]> = { vote: parseAwardsVote, stats: parseAwardsStats, best5: parseAwardsBest5 };
+  const out = { fetched: [] as string[], failures: [] as string[] };
+  for (const page of Object.keys(AWARD_URLS) as AwardPage[]) {
+    if (log[page] && daysBetween(log[page], today) < AWARD_REFRESH_DAYS && (await exists(rawPath.award(page)))) continue;
+    try {
+      const bytes = await getBytes(AWARD_URLS[page]);
+      if (parsers[page](utf8(bytes)).length === 0) throw new Error("수상 줄이 0개");
+      await saveRaw(rawPath.award(page), bytes);
+      log[page] = today;
+      out.fetched.push(page);
+    } catch (e) {
+      out.failures.push(`수상 ${page}: ${String(e)}`);
+    }
+  }
+  await mkdir(dirname(rawPath.awardLog()), { recursive: true });
+  await writeFile(rawPath.awardLog(), JSON.stringify(log, null, 1) + "\n");
+  return out;
+}
+
 /** 한 번에 받을 프로필 최대 수 (처음 약 470명 ≈ 12~20분) */
 const PROFILE_LIMIT = 700;
 
@@ -166,7 +191,10 @@ async function main() {
   const profiles = await fetchProfiles(selected, PROFILE_LIMIT);
   console.log(`  프로필: 새로 ${profiles.fetched}명` + (profiles.missing.length ? ` · 공홈에 없음 ${profiles.missing.length}명` : ""));
 
-  const failures = [...results.flatMap((r) => r.failures), ...profiles.failures];
+  const awards = await fetchAwards();
+  if (awards.fetched.length) console.log(`  수상 화면 새로 받음: ${awards.fetched.join(" ")}`);
+
+  const failures = [...results.flatMap((r) => r.failures), ...profiles.failures, ...awards.failures];
   await writeFile(
     rawPath.fetchLog(),
     JSON.stringify({ started, finished: new Date().toISOString(), requests: requestCount, targets, results, profiles }, null, 2) + "\n",

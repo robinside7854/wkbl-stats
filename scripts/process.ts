@@ -13,9 +13,10 @@ import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { PROCESSED_DIR, RAW_DIR, rawPath } from "./config";
 import { exists, readRaw } from "./http";
-import { isRegularLeague, parseBoxScore, parseProfile, parseSchedule, parseSeasonOptions } from "./parse";
+import { isRegularLeague, parseAwardsBest5, parseAwardsStats, parseAwardsVote, parseBoxScore, parseProfile, parseSchedule, parseSeasonOptions } from "./parse";
 import { addLine, emptyLine, isDoubleDouble } from "../lib/metrics";
 import { buildStandings } from "../lib/standings";
+import { awardCounts, matchAwards, type RosterPlayer } from "../lib/awards";
 import { gradeSeason, type SeasonGrade } from "../lib/grades";
 import { QUALIFY_SHARE } from "../lib/metrics";
 import type {
@@ -30,6 +31,7 @@ import type {
   ScheduleGame,
   SeasonInfo,
   SeasonSummary,
+  AwardEntry,
   StatLine,
   TopScorer,
 } from "../lib/types";
@@ -181,6 +183,7 @@ async function processSeason(info: SeasonInfo): Promise<SeasonOut> {
     withBox: games.filter((g) => g.hasBox).length,
     players: seasonPlayers.length,
     lastDate: played.at(-1)?.date ?? "",
+    champion: null,
   };
 
   if (games.length > 0) {
@@ -274,6 +277,53 @@ async function main() {
     }
   }
 
+  // ── 역대 수상·우승·정규리그 1위 (2026-11-01) ──
+  const awardEntries: AwardEntry[] = [];
+  for (const [name, parse] of [["vote", parseAwardsVote], ["stats", parseAwardsStats], ["best5", parseAwardsBest5]] as const) {
+    const file = rawPath.award(name);
+    if (!(await exists(file))) continue;
+    try {
+      awardEntries.push(...parse(await readRaw(file)));
+    } catch (e) {
+      console.log(`  ! 수상(${name}) 읽기 실패: ${String(e)}`);
+    }
+  }
+  const codeOfLabel = new Map(outs.map((o) => [o.info.label.replace(/\s+/g, ""), o.info.code]));
+  const rosterCache = new Map<string, RosterPlayer[]>();
+  const rosterOf = (code: string): RosterPlayer[] => {
+    let r = rosterCache.get(code);
+    if (!r) {
+      const o = outs.find((x) => x.info.code === code);
+      r = o
+        ? [...o.players.values()].map((a) => {
+            const teamCode = a.teamCodes.at(-1) ?? "";
+            return { playerNo: a.playerNo, nameKo: a.nameKo, teamCode, teamName: teamNames[teamCode]?.bySeason[code] ?? "", games: a.games };
+          })
+        : [];
+      rosterCache.set(code, r);
+    }
+    return r;
+  };
+  const awards = matchAwards(awardEntries, (l) => codeOfLabel.get(l) ?? null, rosterOf);
+  // 우승 팀 = 챔피언전 MVP 의 그 시즌 팀
+  const champions = new Map<string, string>();
+  for (const m of awards.matched) {
+    if (m.entry.key !== "finalsMvp") continue;
+    const t = rosterOf(m.seasonCode).find((p) => p.playerNo === m.playerNo)?.teamCode;
+    if (t) champions.set(m.seasonCode, t);
+  }
+  // 정규리그 1위 = 끝난 시즌 팀 순위 맨 위
+  const regularFirst = new Map<string, string>();
+  for (const sm of summaries) {
+    if (sm.played === 0 || sm.played < sm.scheduled) continue;
+    const st = JSON.parse(await readFile(join(PROCESSED_DIR, sm.code, "standings.json"), "utf8").catch(() => "[]")) as { teamCode: string }[];
+    if (st[0]) regularFirst.set(sm.code, st[0].teamCode);
+  }
+  for (const sm of summaries) sm.champion = champions.get(sm.code) ?? null;
+  await writeJson(join(PROCESSED_DIR, "seasons.json"), summaries);
+  console.log(`수상 ${awardEntries.length}줄 → 선수 연결 ${awards.matched.length} · 못 찾음 ${awards.unmatched.length} · 우리 데이터 전 시즌 ${awards.outOfRange} · 우승 팀 ${champions.size}시즌`);
+  for (const u of awards.unmatched.slice(0, 20)) console.log(`    ? ${u.season} ${u.key} ${u.name}`);
+
   const index: PlayerIndexRow[] = [];
   let withProfile = 0;
   for (const c of careers.values()) {
@@ -281,6 +331,9 @@ async function main() {
     const profile = (await exists(profileFile)) ? parseProfile(await readRaw(profileFile)) : null;
     if (profile) withProfile++;
     const position = mostCommon(c.positions);
+    const myAwards = (awards.byPlayer.get(c.playerNo) ?? []).sort((a, b) => a.seasonCode.localeCompare(b.seasonCode));
+    const champSeasons = c.seasons.filter((x) => champions.get(x.seasonCode) === x.teamCode).map((x) => x.seasonCode);
+    const firstSeasons = c.seasons.filter((x) => regularFirst.get(x.seasonCode) === x.teamCode).map((x) => x.seasonCode);
     const lastTeam = c.seasons.at(-1)?.teamCode ?? "";
     index.push({
       playerNo: c.playerNo,
@@ -293,6 +346,8 @@ async function main() {
       seasons: c.seasons.length,
       career: { ...c.line, games: c.games },
       profile,
+      awardCounts: awardCounts(myAwards),
+      championships: champSeasons.length,
     });
     const detail: PlayerDetail = {
       playerNo: c.playerNo,
@@ -305,6 +360,9 @@ async function main() {
       recentGames: [...c.lastLogs].reverse(),
       recentSeason: c.lastSeason,
       profile,
+      awards: myAwards,
+      championships: champSeasons,
+      regularFirsts: firstSeasons,
     };
     await writeJson(join(PROCESSED_DIR, "player", `${c.playerNo}.json`), detail);
   }

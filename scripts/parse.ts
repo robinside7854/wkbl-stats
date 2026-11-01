@@ -2,7 +2,7 @@
 // 공홈은 JSON 이 아니라 ASP 가 그린 HTML 을 준다. 표를 정규식으로 읽으므로 공홈 화면이 바뀌면 여기가 깨진다 —
 // 그래서 머리글 순서를 먼저 확인하고(checkBoxHeader), 다르면 조용히 틀린 숫자를 만들지 않고 예외를 던진다.
 // 수집(fetch.ts)과 가공(process.ts)이 같이 쓴다. 표본: tests/fixtures (2026-10-30 GitHub Actions 조사 응답).
-import type { BoxPlayerLine, BoxScore, BoxTeam, DraftInfo, PlayerProfile, Position, ScheduleGame, SeasonInfo, StatLine } from "../lib/types";
+import type { AwardEntry, AwardKey, BoxPlayerLine, BoxScore, BoxTeam, DraftInfo, PlayerProfile, Position, ScheduleGame, SeasonInfo, StatLine } from "../lib/types";
 
 const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", "#39": "'" };
 
@@ -80,7 +80,9 @@ interface TeamCell {
 }
 
 function parseTeamCell(block: string): TeamCell | null {
-  const code = block.match(/teamlogo_(\d+)\./)?.[1];
+  // 로고 파일 이름에 꼬리가 붙는 옛 시즌이 있다: 2012-13~2018-19 하나 "teamlogo_09_old.png", 2019-20 "teamlogo_09_old2.png"
+  // (2026-11-01 발견 — 전에는 이 팀 경기를 통째로 놓쳤다)
+  const code = block.match(/teamlogo_(\d+)(?:_[a-z0-9]+)?\./i)?.[1];
   const name = block.match(/class="team_name[^"]*"[^>]*>([^<]*)</)?.[1];
   if (!code || name === undefined) return null;
   const scoreText = block.match(/class="txt_score"[^>]*>([^<]*)</)?.[1]?.trim() ?? "";
@@ -268,4 +270,128 @@ export function parseProfile(html: string): PlayerProfile | null {
     school: profileItem(view, "출신학교"),
     draft: draftText ? parseDraft(decodeHtml(draftText.replace(/<[^>]*>/g, " "))) : null,
   };
+}
+
+// ─── 역대 수상 (2026-11-01 조사: /history/awards.asp · awards_statistics.asp · awards_vote.asp) ───
+// 세 화면 모두 이름만 있고 선수 번호가 없다 → 번호는 process.ts 가 그 시즌 명단에서 찾는다.
+
+/** "2025~2026" · "2025-2026" · "2007 겨울" → "2025-2026" · "2007겨울" (우리 시즌 라벨과 같은 모양) */
+export function normalizeAwardSeason(s: string): string {
+  return stripTags(s).replace("~", "-").replace(/\s+/g, "");
+}
+
+/** 칸 → 이름 (첫 <br> 앞, "-" 면 null). 공백은 그대로 — 번호 찾을 때 공백을 무시한다 */
+function awardName(cell: string): string | null {
+  const head = cell.split(/<br\s*\/?>/i)[0];
+  const n = stripTags(head);
+  return n && n !== "-" ? n : null;
+}
+
+const VOTE_HEADERS: Record<string, AwardKey> = {
+  "정규리그 MVP": "mvp",
+  "챔피언전 MVP": "finalsMvp",
+  "아시아쿼터 선수상": "asia",
+  "외국인 선수상": "foreign",
+  "신인 선수상": "rookie",
+  "우수수비 선수상": "defense",
+  "식스우먼상": "sixth",
+  "모범 선수상": "fairPlay",
+  "포카리스웨트 MIP": "mip",
+};
+
+const STAT_HEADERS: Record<string, AwardKey> = {
+  득점상: "scoring",
+  "3점 득점상": "threePm",
+  "3점 야투상": "threePct",
+  "2점 야투상": "twoPct",
+  자유투상: "ftPct",
+  리바운드상: "rebounds",
+  어시스트상: "assists",
+  스틸상: "steals",
+  블록상: "blocks",
+  "윤덕주상 최고공헌도": "contribution",
+};
+
+/** 머리글 칸 글자 */
+function headerText(th: string): string {
+  return stripTags(th);
+}
+
+function awardTables(html: string): string[] {
+  // data-kr·data-en 속성 값 안에 <br>·<span> 이 들어 있어 태그 경계가 깨진다 → 속성째 지운다 (칸 글자 = data-kr 과 같다)
+  return html
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/\sdata-(?:kr|en)="[^"]*"/g, "").match(/<table[\s\S]*?<\/table>/gi) ?? [];
+}
+function awardRows(table: string): string[] {
+  return table.match(/<tr[\s\S]*?<\/tr>/gi) ?? [];
+}
+function awardCells(tr: string): string[] {
+  return [...tr.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map((m) => m[1]);
+}
+
+/**
+ * 투표 수상 화면: 시즌 표(구분) 한 개 + 상 표 두 개(같은 줄 순서). 머리글을 이름으로 맞추고 모르는 상(지도상·심판상 등)은 버린다.
+ * 시즌 표의 줄 수와 상 표의 줄 수가 다르면 화면이 바뀐 것 → 예외
+ */
+export function parseAwardsVote(html: string): AwardEntry[] {
+  const ts = awardTables(html);
+  const seasonTable = ts.find((t) => /<th[^>]*>\s*구분\s*<\/th>/.test(t) && !/정규리그 MVP/.test(t));
+  if (!seasonTable) throw new Error("수상(투표): 시즌 표를 찾지 못했다");
+  const seasons = awardRows(seasonTable).map(awardCells).filter((c) => c.length === 1).map((c) => normalizeAwardSeason(c[0]));
+  const out: AwardEntry[] = [];
+  for (const t of ts) {
+    const heads = [...t.matchAll(/<th[\s\S]*?<\/th>/gi)].map((m) => headerText(m[0]));
+    if (!heads.some((h) => VOTE_HEADERS[h])) continue;
+    const body = awardRows(t).map(awardCells).filter((c) => c.length > 0);
+    if (body.length !== seasons.length) throw new Error(`수상(투표): 시즌 ${seasons.length}줄인데 상 표는 ${body.length}줄`);
+    body.forEach((cs, i) => {
+      heads.forEach((h, j) => {
+        const key = VOTE_HEADERS[h];
+        const name = key && cs[j] !== undefined ? awardName(cs[j]) : null;
+        if (key && name) out.push({ season: seasons[i], key, name, team: null, value: null });
+      });
+    });
+  }
+  return out;
+}
+
+/** 기록 부문 수상 화면: 첫 칸 시즌, 나머지 칸 "이름<br>(값)" */
+export function parseAwardsStats(html: string): AwardEntry[] {
+  const t = awardTables(html).find((x) => /득점상/.test(x));
+  if (!t) throw new Error("수상(기록): 표를 찾지 못했다");
+  const heads = [...t.matchAll(/<th[\s\S]*?<\/th>/gi)].map((m) => headerText(m[0]));
+  if (heads[0] !== "구분") throw new Error(`수상(기록): 첫 머리글이 "${heads[0]}"`);
+  const out: AwardEntry[] = [];
+  for (const tr of awardRows(t)) {
+    const cs = awardCells(tr);
+    if (cs.length < 2) continue;
+    const season = normalizeAwardSeason(cs[0]);
+    cs.slice(1).forEach((c, j) => {
+      const key = STAT_HEADERS[heads[j + 1]];
+      const name = key ? awardName(c) : null;
+      if (!key || !name) return;
+      const v = stripTags(c.split(/<br\s*\/?>/i)[1] ?? "").replace(/^\(|\)$/g, "");
+      out.push({ season, key, name, team: null, value: v || null });
+    });
+  }
+  return out;
+}
+
+/** BEST5 화면: 첫 칸 시즌, 둘째 칸 "이름(팀)" 다섯 개 (한 줄에 둘이 붙은 칸도 있어 이름(팀) 꼴을 모두 찾는다) */
+export function parseAwardsBest5(html: string): AwardEntry[] {
+  const t = awardTables(html).find((x) => /BEST5/.test(x));
+  if (!t) throw new Error("수상(BEST5): 표를 찾지 못했다");
+  const out: AwardEntry[] = [];
+  for (const tr of awardRows(t)) {
+    const cs = awardCells(tr);
+    if (cs.length < 2) continue;
+    const season = normalizeAwardSeason(cs[0]);
+    const text = stripTags(cs[1].replace(/<\/p>/gi, " | "));
+    for (const m of text.matchAll(/([^|()]+?)\s*\(([^()]+)\)+/g)) {
+      const name = m[1].replace(/^[\s|]+/, "").trim();
+      if (name && name !== "-") out.push({ season, key: "best5", name, team: m[2].trim(), value: null });
+    }
+  }
+  return out;
 }

@@ -13,6 +13,7 @@ import CareerTrend, { type TrendPoint } from "@/app/components/CareerTrend";
 import HelpPopover from "@/app/components/HelpPopover";
 import PageShell from "@/app/components/PageShell";
 import SeasonTable, { type SeasonRow } from "@/app/components/SeasonTable";
+import GameLog from "@/app/components/GameLog";
 
 export const dynamicParams = false;
 export function generateStaticParams() {
@@ -177,43 +178,23 @@ export default async function PlayerPage({ params }: { params: Promise<{ no: str
           <h2 className="mb-2 text-h2 font-bold">
             경기 기록 <span className="text-body font-normal text-ink-3">{label(p.recentSeason)}</span>
           </h2>
-          <div className="surface-card overflow-hidden rounded-container">
-            <table className="tabular w-full border-separate border-spacing-0 text-sub">
-              <caption className="sr-only">{label(p.recentSeason)} 경기별 기록</caption>
-              <thead>
-                <tr className="text-ink-3">
-                  <th scope="col" className="border-b border-line px-2 py-2 text-left font-medium">날짜</th>
-                  <th scope="col" className="border-b border-line px-2 py-2 text-left font-medium">상대</th>
-                  <th scope="col" className="border-b border-line px-2 py-2 text-right font-medium">결과</th>
-                  <th scope="col" className="hidden border-b border-line px-2 py-2 text-right font-medium sm:table-cell">출전</th>
-                  <th scope="col" className="border-b border-line px-2 py-2 text-right font-medium">득점</th>
-                  <th scope="col" className="border-b border-line px-2 py-2 text-right font-medium">리바</th>
-                  <th scope="col" className="border-b border-line px-2 py-2 text-right font-medium">어시</th>
-                  <th scope="col" className="hidden border-b border-line px-2 py-2 text-right font-medium sm:table-cell">스틸</th>
-                  <th scope="col" className="hidden border-b border-line px-2 py-2 text-right font-medium sm:table-cell">블록</th>
-                </tr>
-              </thead>
-              <tbody>
-                {p.recentGames.map((g) => (
-                  <tr key={g.gameNo}>
-                    <td className="h-11 border-b border-line px-2 text-ink-2">{shortDate(g.date)}</td>
-                    <td className="border-b border-line px-2 text-ink">
-                      {g.home ? "vs" : "@"} {teamName(g.oppCode, p.recentSeason)}
-                    </td>
-                    <td className={`border-b border-line px-2 text-right font-semibold ${g.margin > 0 ? "text-series-1" : "text-ink-3"}`}>
-                      {g.margin > 0 ? "승" : "패"} {g.margin > 0 ? `+${g.margin}` : g.margin}
-                    </td>
-                    <td className="hidden border-b border-line px-2 text-right text-ink-2 sm:table-cell">{formatMinutes(g.sec)}</td>
-                    <td className="border-b border-line px-2 text-right font-semibold text-ink">{g.pts}</td>
-                    <td className="border-b border-line px-2 text-right text-ink-2">{g.reb}</td>
-                    <td className="border-b border-line px-2 text-right text-ink-2">{g.ast}</td>
-                    <td className="hidden border-b border-line px-2 text-right text-ink-2 sm:table-cell">{g.stl}</td>
-                    <td className="hidden border-b border-line px-2 text-right text-ink-2 sm:table-cell">{g.blk}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <GameLog
+            caption={`${label(p.recentSeason)} 경기별 기록`}
+            rows={p.recentGames.map((g) => ({
+              key: String(g.gameNo),
+              date: shortDate(g.date),
+              opp: `${g.home ? "vs" : "@"} ${teamName(g.oppCode, p.recentSeason)}`,
+              win: g.margin > 0,
+              margin: g.margin,
+              min: formatMinutes(g.sec),
+              pts: g.pts,
+              reb: g.reb,
+              ast: g.ast,
+              stl: g.stl,
+              blk: g.blk,
+              tpm: g.threePm,
+            }))}
+          />
         </section>
       )}
       <Link href="/players" className="focus-ring link-shortcut text-sub">
