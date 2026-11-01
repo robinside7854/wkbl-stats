@@ -1,5 +1,6 @@
 "use client";
 // 선수 상세 시즌별 기록표 (RowList: 모바일 행 카드 / PC 표). 숫자는 부르는 쪽(page)이 lib 로 계산해 넘긴다.
+import type { ReactNode } from "react";
 import RowList from "./RowList";
 import TeamBadge from "./TeamBadge";
 
@@ -22,6 +23,19 @@ export interface SeasonRow {
   ft: string;
   ts: string;
   career?: boolean;
+  /** 그 시즌 리그 1위인 칸 키 (pts·reb·ast·stl·blk·fg·three·ft) */
+  lead?: string[];
+}
+
+/** 리그 1위 칸은 굵은 글자 + 금색 (kbl-stats 기록표와 같은 표시) */
+function cell(r: SeasonRow, key: "pts" | "reb" | "ast" | "stl" | "blk" | "fg" | "three" | "ft"): ReactNode {
+  return r.lead?.includes(key) ? (
+    <b className="font-black text-gold-ink" title="그 시즌 리그 1위">
+      {r[key]}
+    </b>
+  ) : (
+    r[key]
+  );
 }
 
 export default function SeasonTable({ rows }: { rows: SeasonRow[] }) {
@@ -42,19 +56,19 @@ export default function SeasonTable({ rows }: { rows: SeasonRow[] }) {
             </span>
           </span>
           <span className="tabular shrink-0 text-sub text-ink-2">
-            <b className="text-ink">{r.pts}</b>점 {r.reb}리 {r.ast}어
+            <b className="text-ink">{cell(r, "pts")}</b>점 {cell(r, "reb")}리 {cell(r, "ast")}어
           </span>
         </>
       )}
       details={(r) => [
         { key: "min", label: "출전", value: r.min },
-        { key: "stl", label: "스틸", value: r.stl },
-        { key: "blk", label: "블록", value: r.blk },
+        { key: "stl", label: "스틸", value: cell(r, "stl") },
+        { key: "blk", label: "블록", value: cell(r, "blk") },
         { key: "tov", label: "턴오버", value: r.tov },
         { key: "pf", label: "파울", value: r.pf },
-        { key: "fg", label: "야투%", value: r.fg },
-        { key: "three", label: "3점%", value: r.three },
-        { key: "ft", label: "자유투%", value: r.ft },
+        { key: "fg", label: "야투%", value: cell(r, "fg") },
+        { key: "three", label: "3점%", value: cell(r, "three") },
+        { key: "ft", label: "자유투%", value: cell(r, "ft") },
         { key: "ts", label: "TS%", value: r.ts },
       ]}
       columns={[
@@ -62,16 +76,16 @@ export default function SeasonTable({ rows }: { rows: SeasonRow[] }) {
         { key: "team", header: "팀", align: "left", cell: (r) => r.teamName },
         { key: "g", header: "경기", cell: (r) => r.games },
         { key: "min", header: "출전", cell: (r) => r.min },
-        { key: "pts", header: "득점", cell: (r) => r.pts },
-        { key: "reb", header: "리바", cell: (r) => r.reb },
-        { key: "ast", header: "어시", cell: (r) => r.ast },
-        { key: "stl", header: "스틸", cell: (r) => r.stl },
-        { key: "blk", header: "블록", cell: (r) => r.blk },
+        { key: "pts", header: "득점", cell: (r) => cell(r, "pts") },
+        { key: "reb", header: "리바", cell: (r) => cell(r, "reb") },
+        { key: "ast", header: "어시", cell: (r) => cell(r, "ast") },
+        { key: "stl", header: "스틸", cell: (r) => cell(r, "stl") },
+        { key: "blk", header: "블록", cell: (r) => cell(r, "blk") },
         { key: "tov", header: "턴오버", cell: (r) => r.tov },
         { key: "pf", header: "파울", cell: (r) => r.pf },
-        { key: "fg", header: "야투%", cell: (r) => r.fg },
-        { key: "three", header: "3점%", cell: (r) => r.three },
-        { key: "ft", header: "자유투%", cell: (r) => r.ft },
+        { key: "fg", header: "야투%", cell: (r) => cell(r, "fg") },
+        { key: "three", header: "3점%", cell: (r) => cell(r, "three") },
+        { key: "ft", header: "자유투%", cell: (r) => cell(r, "ft") },
         { key: "ts", header: "TS%", cell: (r) => r.ts },
       ]}
     />

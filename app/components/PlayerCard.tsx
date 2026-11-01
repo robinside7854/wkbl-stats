@@ -24,7 +24,7 @@ export interface CardSeason {
   values: Record<ComponentKey, string>;
 }
 
-export default function PlayerCard({ seasons, nameKo, backNumber }: { seasons: CardSeason[]; nameKo: string; backNumber: string | null }) {
+export default function PlayerCard({ seasons, nameKo, backNumber, primeCode = null }: { seasons: CardSeason[]; nameKo: string; backNumber: string | null; primeCode?: string | null }) {
   const [code, setCode] = useState(seasons[0]?.code ?? "");
   const mounted = useMounted();
   const s = seasons.find((x) => x.code === code) ?? seasons[0];
@@ -45,7 +45,7 @@ export default function PlayerCard({ seasons, nameKo, backNumber }: { seasons: C
           label="시즌"
           scroll
           className="mb-3"
-          chips={seasons.map((x) => ({ value: x.code, label: x.label }))}
+          chips={seasons.map((x) => ({ value: x.code, label: x.code === primeCode ? `${x.label} 프라임` : x.label, highlight: x.code === primeCode }))}
           value={s.code}
           onChange={(v) => {
             setCode(v);
@@ -66,6 +66,11 @@ export default function PlayerCard({ seasons, nameKo, backNumber }: { seasons: C
             )}
             <p className="relative text-sub font-semibold opacity-90">
               {s.label} · {s.teamName} · {s.games}경기
+              {s.code === primeCode && (
+                <span className="ml-2 rounded-control px-1.5 py-0.5 text-caption font-bold" style={{ background: "var(--grade-s)", color: "var(--grade-s-ink)" }}>
+                  프라임 시즌
+                </span>
+              )}
             </p>
             <div className="relative mt-1 flex items-end justify-between gap-3">
               <div className="min-w-0">

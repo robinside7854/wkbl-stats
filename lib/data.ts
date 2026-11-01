@@ -3,6 +3,8 @@
 import "server-only";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { seasonLeaders, type LeaderPlayer, type SeasonLeadKey } from "./leaders";
+import { QUALIFY_SHARE } from "./metrics";
 import type { PlayerDetail, PlayerIndexRow, PlayerSeason, ProcessedGame, SeasonSummary, TeamStanding } from "./types";
 
 const DIR = join(process.cwd(), "data", "processed");
@@ -53,4 +55,16 @@ export function teamName(code: string, season?: string): string {
 /** 그 시즌 팀당 경기 수(가장 많이 뛴 팀) — 표본 기준에 쓴다 */
 export function teamGames(code: string): number {
   return getStandings(code).reduce((m, t) => Math.max(m, t.games), 0);
+}
+
+const leaderCache = new Map<string, Map<SeasonLeadKey, Set<string>>>();
+/** 그 시즌 리그 1위 {부문: 선수 번호} — 리더보드 기본 기준(팀 경기 절반 이상 + 성공률 시도 기준)과 같다 */
+export function getSeasonLeaders(code: string): Map<SeasonLeadKey, Set<string>> {
+  let m = leaderCache.get(code);
+  if (!m) {
+    const players: LeaderPlayer[] = getSeasonPlayers(code).map((p) => ({ ...p, id: p.playerNo, teamName: "" }));
+    m = seasonLeaders(players, { minGames: Math.ceil(teamGames(code) * QUALIFY_SHARE) });
+    leaderCache.set(code, m);
+  }
+  return m;
 }

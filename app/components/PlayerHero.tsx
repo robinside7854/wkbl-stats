@@ -52,6 +52,8 @@ export default function PlayerHero({
   tiles,
   latestGrade,
   latestGradeSeason,
+  honors = [],
+  primeText,
 }: {
   nameKo: string;
   nameEn: string;
@@ -65,6 +67,10 @@ export default function PlayerHero({
   tiles: HeroTile[];
   latestGrade: SeasonGrade | null;
   latestGradeSeason: string;
+  /** 우승·MVP 등 금색 칩 (lib/awards honorChips) */
+  honors?: { key: string; label: string }[];
+  /** 프라임 시즌 한 줄 "22-23 · S 98" */
+  primeText?: string;
 }) {
   const c = teamColor(teamCode);
   const mid = mixHex(c.primary, "#000000", 0.3);
@@ -96,6 +102,16 @@ export default function PlayerHero({
                 <span className="opacity-85">{latestGradeSeason} 종합</span>
               </div>
             )}
+            {honors.length > 0 && (
+              <ul aria-label="우승·수상" className="mt-3 flex flex-wrap gap-1.5">
+                {honors.map((h) => (
+                  <li key={h.key} className="rounded-control border px-2 py-1 text-sub font-bold" style={{ background: "var(--grade-s)", color: "var(--grade-s-ink)", borderColor: "color-mix(in oklab, var(--grade-s) 70%, black)" }}>
+                    {h.label}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {primeText && <p className="mt-2 text-sub font-semibold opacity-90">프라임 시즌 {primeText}</p>}
           </div>
           <div className="self-end">
             <span className="flex sm:hidden">

@@ -45,11 +45,14 @@ export interface RosterPlayer {
   teamName: string;
   teamCode: string;
   games: number;
+  /** 그 시즌 득점 합 — 동명이인 가르기(상은 대개 주전이 받는다) */
+  pts: number;
 }
 
 /**
  * 공홈 수상 줄 → 선수 번호.
- * 1) 그 시즌 명단에서 이름이 같은 선수(공백 무시) 2) 여럿이면 BEST5 팀 표기와 팀 이름 앞 두 글자가 같은 선수, 그래도 여럿이면 경기 수가 많은 선수
+ * 1) 그 시즌 명단에서 이름이 같은 선수(공백 무시) 2) 여럿이면 BEST5 팀 표기와 팀 이름 앞 두 글자가 같은 선수, 그래도 여럿이면 그 시즌 득점이 많은 선수
+ *    (2022-23 챔피언전 MVP 김단비: 우리은행 515점 ↔ 삼성생명 192점 — 투표 화면엔 팀이 없다)
  * 3) 없으면 이름 끝 글자들이 같은 선수 하나("토마스" → "앨리사 토마스" 처럼 표기가 다른 외국 선수)
  * 시즌이 우리 데이터에 없으면(2003 여름 전) 건너뛴다.
  */
@@ -69,18 +72,21 @@ export function matchAwards(
       continue;
     }
     const roster = rosterOf(code);
-    const n = normName(e.name);
+    // "김단비 (KEB하나은행)" 처럼 이름 뒤에 팀이 붙은 칸 → 팀 표기로 쓴다
+    const paren = e.name.match(/^(.*?)\s*\(([^()]+)\)\s*$/);
+    const team = e.team ?? paren?.[2] ?? null;
+    const n = normName(paren ? paren[1] : e.name);
     let cands = roster.filter((p) => normName(p.nameKo) === n);
     if (cands.length === 0 && n.length >= 2) {
       const tail = roster.filter((p) => normName(p.nameKo).endsWith(n) || n.endsWith(normName(p.nameKo).slice(-3)));
       if (tail.length === 1) cands = tail;
     }
-    if (cands.length > 1 && e.team) {
-      const t = normName(e.team).slice(0, 2);
+    if (cands.length > 1 && team) {
+      const t = normName(team).slice(0, 2);
       const byTeam = cands.filter((p) => normName(p.teamName).startsWith(t));
       if (byTeam.length > 0) cands = byTeam;
     }
-    const pick = [...cands].sort((a, b) => b.games - a.games)[0];
+    const pick = [...cands].sort((a, b) => b.pts - a.pts || b.games - a.games)[0];
     if (!pick) {
       unmatched.push(e);
       continue;
@@ -109,4 +115,17 @@ export function awardRows(awards: readonly PlayerAward[]): { key: AwardKey; seas
       .map((a) => ({ code: a.seasonCode, value: a.value }))
       .sort((x, y) => x.code.localeCompare(y.code)),
   })).filter((r) => r.seasons.length > 0);
+}
+
+/** 선수 머리말 금색 칩: 우승 → 정규리그 MVP → 챔피언결정전 MVP → BEST5 → 신인상 (있는 것만) */
+export function honorChips(awards: readonly PlayerAward[], championships: number): { key: string; label: string }[] {
+  const n = awardCounts(awards);
+  const chips: { key: string; label: string }[] = [];
+  if (championships > 0) chips.push({ key: "champion", label: `우승 ${championships}회` });
+  const short: Partial<Record<AwardKey, string>> = { mvp: "정규리그 MVP", finalsMvp: "챔프전 MVP", best5: "BEST 5", rookie: "신인상" };
+  for (const k of HONOR_CHIP_KEYS) {
+    const c = n[k] ?? 0;
+    if (c > 0) chips.push({ key: k, label: k === "rookie" ? short[k]! : `${short[k]} ${c}회` });
+  }
+  return chips;
 }

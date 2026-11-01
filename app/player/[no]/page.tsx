@@ -1,11 +1,13 @@
 // 선수 상세 /player/{번호}: 머리말(팀 색·유니폼 등번호·프로필·통산) · 시즌 능력치 카드(6축·등급) · 시즌별 변화 · 시즌별 기록 · 커리어 하이 · 마지막 시즌 경기 기록
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getPlayer, getPlayersIndex, getSeasons, teamName } from "@/lib/data";
+import { getPlayer, getPlayersIndex, getSeasonLeaders, getSeasons, teamName } from "@/lib/data";
+import { AWARD_LABELS, STAT_AWARD_KEYS, awardRows, honorChips } from "@/lib/awards";
+import { SEASON_LEAD_KEYS } from "@/lib/leaders";
 import { dotDate, formatPct1, positionLabel, seasonShortLabel, shortDate } from "@/lib/format";
 import { fga, fgm, formatMinutes, pct, perGame, tsPct } from "@/lib/metrics";
 import type { CareerHigh, DraftInfo, StatLine } from "@/lib/types";
-import { COMPONENTS, ageOn, componentText, componentValue, type ComponentKey } from "@/lib/grades";
+import { COMPONENTS, ageOn, componentText, componentValue, pickPrimeSeason, score99, type ComponentKey } from "@/lib/grades";
 import { teamColor } from "@/lib/teams";
 import PlayerCard, { type CardSeason } from "@/app/components/PlayerCard";
 import PlayerHero, { type HeroFact, type HeroTile } from "@/app/components/PlayerHero";
@@ -70,10 +72,17 @@ export default async function PlayerPage({ params }: { params: Promise<{ no: str
   const last = p.seasons[0];
   const c = p.career;
 
+  // 리그 1위 칸 (기록표 굵게): lib/leaders 키 → 기록표 칸 키
+  const LEAD_CELL: Record<(typeof SEASON_LEAD_KEYS)[number], string> = { pts: "pts", reb: "reb", ast: "ast", stl: "stl", blk: "blk", fgPct: "fg", threePct: "three", ftPct: "ft" };
+  const leadOf = (code: string) => {
+    const m = getSeasonLeaders(code);
+    return SEASON_LEAD_KEYS.filter((k) => m.get(k)?.has(p.playerNo)).map((k) => LEAD_CELL[k]);
+  };
   const rows: SeasonRow[] = [
-    ...p.seasons.map((s) =>
-      avgRow(s.seasonCode, label(s.seasonCode), s.teamCode, s.teamCodes.map((t) => teamName(t, s.seasonCode)).join(" → "), s),
-    ),
+    ...p.seasons.map((s) => ({
+      ...avgRow(s.seasonCode, label(s.seasonCode), s.teamCode, s.teamCodes.map((t) => teamName(t, s.seasonCode)).join(" → "), s),
+      lead: leadOf(s.seasonCode),
+    })),
     avgRow("career", "통산", "", `${p.seasons.length}시즌`, c, true),
   ];
   const trend: TrendPoint[] = [...p.seasons].reverse().map((s) => ({
@@ -108,6 +117,16 @@ export default async function PlayerPage({ params }: { params: Promise<{ no: str
     { label: "3점%", value: formatPct1(pct(c.threePm, c.threePa)), sub: "통산" },
   ];
   const graded = p.seasons.filter((s) => s.grade);
+  const primeCode = pickPrimeSeason(p.seasons);
+  const prime = primeCode ? p.seasons.find((s) => s.seasonCode === primeCode) : undefined;
+  const primeText = prime?.grade ? `${label(prime.seasonCode)} · ${prime.grade.overallGrade} ${score99(prime.grade.overall)}` : undefined;
+  const awards = p.awards ?? [];
+  const champs = p.championships ?? [];
+  const firsts = p.regularFirsts ?? [];
+  const aRows = awardRows(awards);
+  const mainRows = aRows.filter((r) => !STAT_AWARD_KEYS.includes(r.key));
+  const statRows = aRows.filter((r) => STAT_AWARD_KEYS.includes(r.key));
+  const leadCount = rows.reduce((n, r) => n + (r.lead?.length ?? 0), 0);
   const cardSeasons: CardSeason[] = graded.map((s) => ({
     code: s.seasonCode,
     label: label(s.seasonCode),
@@ -132,11 +151,13 @@ export default async function PlayerPage({ params }: { params: Promise<{ no: str
         tiles={tiles}
         latestGrade={graded[0]?.grade ?? null}
         latestGradeSeason={graded[0] ? label(graded[0].seasonCode) : ""}
+        honors={honorChips(awards, champs.length)}
+        primeText={primeText}
       />
 
       {cardSeasons.length > 0 ? (
         <div className="mb-8">
-          <PlayerCard seasons={cardSeasons} nameKo={p.nameKo} backNumber={prof?.backNumber ?? null} />
+          <PlayerCard seasons={cardSeasons} nameKo={p.nameKo} backNumber={prof?.backNumber ?? null} primeCode={primeCode} />
         </div>
       ) : (
         <p className="mb-6 text-sub text-ink-3">어느 시즌도 팀 경기의 절반 이상 뛰지 않아 능력치 등급이 없어요.</p>
@@ -152,7 +173,42 @@ export default async function PlayerPage({ params }: { params: Promise<{ no: str
       <section className="mb-6">
         <h2 className="mb-2 text-h2 font-bold">시즌별 기록 (경기당)</h2>
         <SeasonTable rows={rows} />
+        {leadCount > 0 && <p className="mt-1.5 text-caption text-ink-3">금색 굵은 숫자 = 그 시즌 리그 1위 (팀 경기 절반 이상 뛴 선수 중)</p>}
       </section>
+
+      {(champs.length > 0 || firsts.length > 0 || aRows.length > 0) && (
+        <section className="mb-6" aria-labelledby="awards-title">
+          <h2 id="awards-title" className="mb-2 text-h2 font-bold">
+            우승·수상 경력
+          </h2>
+          <dl className="surface-card divide-y divide-line rounded-container">
+            {[
+              ...(champs.length ? [{ key: "champion", label: "챔피언결정전 우승", seasons: champs.map((code) => ({ code, value: null as string | null })), gold: true }] : []),
+              ...(firsts.length ? [{ key: "first", label: "정규리그 1위", seasons: firsts.map((code) => ({ code, value: null as string | null })), gold: false }] : []),
+              ...mainRows.map((r) => ({ key: r.key, label: AWARD_LABELS[r.key], seasons: r.seasons, gold: r.key === "mvp" || r.key === "finalsMvp" })),
+              ...statRows.map((r) => ({ key: r.key, label: AWARD_LABELS[r.key], seasons: r.seasons, gold: false })),
+            ].map((r) => (
+              <div key={r.key} className="grid gap-x-3 gap-y-1 px-4 py-3 sm:grid-cols-[12rem_minmax(0,1fr)]">
+                <dt className="flex items-center gap-2 text-body font-semibold text-ink">
+                  {r.label}
+                  <span className={`tabular rounded-control px-1.5 py-0.5 text-caption font-bold ${r.gold ? "" : "bg-surface-2 text-ink-2"}`} style={r.gold ? { background: "var(--grade-s)", color: "var(--grade-s-ink)" } : undefined}>
+                    {r.seasons.length}회
+                  </span>
+                </dt>
+                <dd className="tabular flex flex-wrap gap-x-3 gap-y-1 text-sub text-ink-2">
+                  {[...r.seasons].sort((a, b) => b.code.localeCompare(a.code)).map((x) => (
+                    <span key={x.code} className="whitespace-nowrap">
+                      {label(x.code)}
+                      {x.value && <span className="text-ink-3"> ({x.value})</span>}
+                    </span>
+                  ))}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-1.5 text-caption text-ink-3">수상은 WKBL 역대 부문별 수상자 기준. 우승은 그 시즌 챔피언전 MVP 소속 팀에서 뛴 시즌(우리 판정).</p>
+        </section>
+      )}
 
       {p.highs.length > 0 && (
         <section className="mb-6">

@@ -267,3 +267,13 @@ export function ageOn(birth: string, today: string): number | null {
   if (`${t[2]}${t[3]}` < `${b[2]}${b[3]}`) age--;
   return age;
 }
+
+/**
+ * 프라임 시즌 (kbl-stats lib/prime 과 같은 규칙): 등급이 있는 시즌이 2개 이상인 선수의 종합 점수(overall) 최고 시즌.
+ * 같으면 경기 수가 많은 시즌 → 최근 시즌. 등급 시즌이 1개뿐이면 null (비교할 시즌이 없다)
+ */
+export function pickPrimeSeason(seasons: readonly { seasonCode: string; games: number; grade: SeasonGrade | null }[]): string | null {
+  const graded = seasons.filter((s) => s.grade);
+  if (graded.length < 2) return null;
+  return [...graded].sort((a, b) => b.grade!.overall - a.grade!.overall || b.games - a.games || b.seasonCode.localeCompare(a.seasonCode))[0].seasonCode;
+}

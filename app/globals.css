@@ -104,6 +104,8 @@
   --color-series-2: var(--series-2);
   --color-warn: var(--warn);
   --color-focus: var(--focus);
+  --color-gold-ink: var(--gold-ink);
+  --color-grade-s: var(--grade-s);
 }
 
 /* ── 디자인 토큰 (디자인 점검 B1~B4, CLAUDE.md "디자인 토큰" 절) ──

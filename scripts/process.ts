@@ -297,7 +297,7 @@ async function main() {
       r = o
         ? [...o.players.values()].map((a) => {
             const teamCode = a.teamCodes.at(-1) ?? "";
-            return { playerNo: a.playerNo, nameKo: a.nameKo, teamCode, teamName: teamNames[teamCode]?.bySeason[code] ?? "", games: a.games };
+            return { playerNo: a.playerNo, nameKo: a.nameKo, teamCode, teamName: teamNames[teamCode]?.bySeason[code] ?? "", games: a.games, pts: a.line.pts };
           })
         : [];
       rosterCache.set(code, r);

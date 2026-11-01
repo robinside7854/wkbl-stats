@@ -271,3 +271,21 @@ export function takeFirst<T>(rows: readonly T[], limit: number): { shown: T[]; r
 
 /** 리더보드 첫 화면 행 수 (KBL LEADERS_PAGE_SIZE) */
 export const LEADERS_PAGE_SIZE = 25;
+
+// ─── 시즌 리그 1위 (선수 상세 기록표에서 굵게 — kbl-stats seasonLeaderMarks 와 같은 생각) ───
+
+/** 기록표에서 1위를 표시하는 부문 (경기당) */
+export const SEASON_LEAD_KEYS = ["pts", "reb", "ast", "stl", "blk", "fgPct", "threePct", "ftPct"] as const satisfies readonly LeaderStatKey[];
+export type SeasonLeadKey = (typeof SEASON_LEAD_KEYS)[number];
+
+/** 그 시즌 리그 1위 {부문: 선수 번호들} — 기본 표본 기준(팀 경기 절반 이상) + 성공률은 시도 기준, 동률은 모두 1위 */
+export function seasonLeaders(players: readonly LeaderPlayer[], rule: QualifyRule): Map<SeasonLeadKey, Set<string>> {
+  const pool = players.filter((p) => p.games >= rule.minGames && p.games > 0);
+  const t = attemptThresholds(players, rule);
+  const out = new Map<SeasonLeadKey, Set<string>>();
+  for (const key of SEASON_LEAD_KEYS) {
+    const ranks = rankMap(pool, key, "perGame", t);
+    out.set(key, new Set([...ranks].filter(([, r]) => r === 1).map(([id]) => id)));
+  }
+  return out;
+}

@@ -22,12 +22,12 @@ assert.equal(stats.filter((s) => s.season === "2025-2026").length, 10);
 assert.deepEqual(best5.filter((b) => b.season === "2013-2014").map((b) => b.name), ["이미선", "박혜진", "임영희", "김정은", "스트릭렌"]);
 assert.equal(best5.find((b) => b.season === "2025-2026")?.team, "KB스타즈");
 
-// 이름 → 번호: 같은 시즌 동명이인은 BEST5 팀, 없으면 경기 수
+// 이름 → 번호: 같은 시즌 동명이인은 BEST5 팀, 없으면 그 시즌 득점
 const roster = [
-  { playerNo: "095104", nameKo: "김단비", teamName: "우리은행", teamCode: "05", games: 30 },
-  { playerNo: "095226", nameKo: "김단비", teamName: "삼성생명", teamCode: "03", games: 3 },
-  { playerNo: "095900", nameKo: "진안", teamName: "하나은행", teamCode: "09", games: 30 },
-  { playerNo: "095800", nameKo: "앨리사 토마스", teamName: "삼성생명", teamCode: "03", games: 30 },
+  { playerNo: "095104", nameKo: "김단비", teamName: "우리은행", teamCode: "05", games: 30, pts: 515 },
+  { playerNo: "095226", nameKo: "김단비", teamName: "삼성생명", teamCode: "03", games: 30, pts: 192 },
+  { playerNo: "095900", nameKo: "진안", teamName: "하나은행", teamCode: "09", games: 30, pts: 300 },
+  { playerNo: "095800", nameKo: "앨리사 토마스", teamName: "삼성생명", teamCode: "03", games: 30, pts: 400 },
 ];
 const r = matchAwards(
   [
@@ -35,13 +35,14 @@ const r = matchAwards(
     { season: "2025-2026", key: "scoring", name: "김단비", team: null, value: "18.33점" },
     { season: "2025-2026", key: "fairPlay", name: "진 안", team: null, value: null },
     { season: "2025-2026", key: "best5", name: "A. 토마스", team: "삼성생명", value: null },
+    { season: "2025-2026", key: "mip", name: "김단비 (삼성생명)", team: null, value: null },
     { season: "2025-2026", key: "mvp", name: "없는 사람", team: null, value: null },
     { season: "1999여름", key: "mvp", name: "정은순", team: null, value: null },
   ],
   (l) => (l === "2025-2026" ? "046" : null),
   () => roster,
 );
-assert.deepEqual(r.matched.map((m) => m.playerNo), ["095226", "095104", "095900", "095800"]);
+assert.deepEqual(r.matched.map((m) => m.playerNo), ["095226", "095104", "095900", "095800", "095226"]);
 assert.equal(r.unmatched.length, 1);
 assert.equal(r.outOfRange, 1);
 assert.deepEqual(awardCounts(r.byPlayer.get("095104")!), { scoring: 1 });
@@ -54,3 +55,24 @@ assert.deepEqual(
   ["mvp:044,045", "scoring:046"],
 );
 console.log("awards ok");
+{
+  const { honorChips } = await import("../lib/awards");
+  assert.deepEqual(
+    honorChips(
+      [
+        { key: "mvp", seasonCode: "045", value: null },
+        { key: "best5", seasonCode: "045", value: null },
+        { key: "best5", seasonCode: "044", value: null },
+        { key: "rookie", seasonCode: "030", value: null },
+        { key: "scoring", seasonCode: "045", value: null },
+      ],
+      3,
+    ).map((c) => c.label),
+    ["우승 3회", "정규리그 MVP 1회", "BEST 5 2회", "신인상"],
+  );
+  const { pickPrimeSeason } = await import("../lib/grades");
+  const g = (overall: number) => ({ overall }) as never;
+  assert.equal(pickPrimeSeason([{ seasonCode: "045", games: 30, grade: g(90) }]), null);
+  assert.equal(pickPrimeSeason([{ seasonCode: "045", games: 30, grade: g(90) }, { seasonCode: "044", games: 30, grade: g(97) }, { seasonCode: "043", games: 10, grade: null }]), "044");
+  console.log("awards honors ok");
+}
