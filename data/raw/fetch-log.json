@@ -1,7 +1,7 @@
 {
-  "started": "2026-11-01T19:11:45.674Z",
-  "finished": "2026-11-01T19:12:13.278Z",
-  "requests": 19,
+  "started": "2026-11-02T22:53:03.948Z",
+  "finished": "2026-11-02T22:53:26.714Z",
+  "requests": 16,
   "targets": [
     "047",
     "046"
@@ -11,8 +11,8 @@
       "season": "047",
       "months": 5,
       "games": 105,
-      "played": 1,
-      "boxFetched": 1,
+      "played": 2,
+      "boxFetched": 2,
       "boxSkipped": 0,
       "failures": []
     },
@@ -27,7 +27,7 @@
     }
   ],
   "profiles": {
-    "fetched": 4,
+    "fetched": 0,
     "missing": [],
     "failures": []
   }
