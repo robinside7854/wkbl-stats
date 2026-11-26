@@ -1,7 +1,7 @@
 {
-  "started": "2026-11-25T23:17:36.339Z",
-  "finished": "2026-11-25T23:17:59.383Z",
-  "requests": 16,
+  "started": "2026-11-26T23:16:39.863Z",
+  "finished": "2026-11-26T23:17:01.101Z",
+  "requests": 15,
   "targets": [
     "047",
     "046"
@@ -12,8 +12,8 @@
       "months": 5,
       "games": 105,
       "played": 21,
-      "boxFetched": 2,
-      "boxSkipped": 19,
+      "boxFetched": 1,
+      "boxSkipped": 20,
       "failures": []
     },
     {
